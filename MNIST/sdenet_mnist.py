@@ -96,7 +96,7 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
     #training with out-of-domain data
-        label = torch.full((args.batch_size,1), real_label, device=device)
+        label = torch.full((args.batch_size,1), float(real_label), device=device)
         optimizer_G.zero_grad()
         predict_in = net(inputs, training_diffusion=True)
         loss_in = criterion2(predict_in, label)
