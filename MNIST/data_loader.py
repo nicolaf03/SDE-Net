@@ -2,12 +2,13 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 #import os
+from pytorch_forecasting.data.timeseries import TimeSeriesDataSet
+from pathlib import Path
 
-
-
+curr_dir = Path(__file__).parent
 
 def getMNIST(batch_size, test_batch_size, img_size, **kwargs):
-    num_workers = kwargs.setdefault('num_workers', 1)
+    num_workers = kwargs.setdefault('num_workers', 0)
     kwargs.pop('input_size', None)
     print("Building MNIST data loader with {} workers".format(num_workers))
 
@@ -18,10 +19,36 @@ def getMNIST(batch_size, test_batch_size, img_size, **kwargs):
     transform_test = transforms.Compose([
         transforms.ToTensor(),
     ])
+    
+    min_encoder_length = 0
+    max_encoder_length = 24     # use 24 months of history
+    min_prediction_length = 1
+    max_prediction_length = 6   # forecast 6 months
+    training_cutoff = data["time_idx"].max() - max_prediction_length
+    
     ds = []
+    # train_loader = DataLoader(
+    #     datasets.MNIST(root='../data/mnist', train=True, download=True, transform=transform_train), batch_size=batch_size,
+    #     shuffle=True, num_workers=num_workers, drop_last=True
+    # )
+    # ds.append(train_loader)
     train_loader = DataLoader(
-        datasets.MNIST(root='../data/mnist', train=True, download=True, transform=transform_train), batch_size=batch_size,
-        shuffle=True, num_workers=num_workers, drop_last=True
+        # datasets.MNIST(root='../data/mnist', train=True, download=True, transform=transform_train),
+        TimeSeriesDataSet(
+            data=curr_dir / '..' / '..' / 'data' / 'wind_SUD.csv',
+            time_idx='time_idx',
+            target='energy',
+            min_encoder_length = min_encoder_length,
+            max_encoder_length = max_encoder_length,
+            min_prediction_length = min_prediction_length,
+            max_prediction_length = max_prediction_length,
+            # target_normalizer=,
+            time_varying_unknown_reals=['energy']
+        ),
+        batch_size=batch_size,
+        shuffle=True, 
+        num_workers=num_workers, 
+        drop_last=True
     )
     ds.append(train_loader)
 

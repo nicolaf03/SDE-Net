@@ -9,10 +9,10 @@ df = pd.read_csv(file_path, delimiter=';', decimal=',', skiprows=2)
 
 for zone in ZONES:
     sub_df = pd.DataFrame(df.iloc[:,0:2])
-    sub_df.rename(columns={'Date': 'Date', 'KWh (daily average)': 'Energy'}, inplace=True)
+    sub_df.rename(columns={'Date': 'date', 'KWh (daily average)': 'energy'}, inplace=True)
     sub_df.dropna(inplace=True)
     sub_df.iloc[:,0] = pd.to_datetime(sub_df.iloc[:,0], format="%d/%m/%Y")
-    sub_df.set_index('Date', inplace=True)
+    sub_df.set_index('date', inplace=True)
 
     file_name = f'wind_{zone}.csv'
     sub_df.to_csv(curr_dir / file_name)
