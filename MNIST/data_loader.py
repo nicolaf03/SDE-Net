@@ -2,6 +2,7 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 #import os
+import pdb
 
 
 
@@ -24,7 +25,7 @@ def getMNIST(batch_size, test_batch_size, img_size, **kwargs):
         shuffle=True, num_workers=num_workers, drop_last=True
     )
     ds.append(train_loader)
-
+    pdb.set_trace()
     test_loader = DataLoader(
         datasets.MNIST(root='../data/mnist', train=False, download=True, transform=transform_test),
         batch_size=test_batch_size, shuffle=False, num_workers=num_workers, drop_last=True
@@ -116,7 +117,7 @@ def getDataSet(data_type, batch_size,test_batch_size, imageSize):
 
 
 if __name__ == '__main__':
-    train_loader, test_loader = getDataSet('cifar10', 256, 1000, 28)
+    train_loader, test_loader = getDataSet('mnist', 256, 1000, 28)
     for batch_idx, (inputs, targets) in enumerate(test_loader):
         print(inputs.shape)
         print(targets.shape)
