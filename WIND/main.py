@@ -22,6 +22,7 @@ parser.add_argument('--decreasing_lr', default=[10, 20,30], nargs='+', help='dec
 parser.add_argument('--decreasing_lr2', default=[15, 30], nargs='+', help='decreasing strategy')
 args = parser.parse_args()
 
+# check if gpu is available
 device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 
 torch.manual_seed(args.seed)
