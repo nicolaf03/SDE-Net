@@ -1,4 +1,4 @@
-from .sdenet_mnist import *
+#from .sdenet_mnist import *
 from .resnet import *
 from .resnet_dropout import *
-
+from .sdenet_wind import *
