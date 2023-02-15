@@ -11,28 +11,32 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 from sklearn.preprocessing import StandardScaler, normalize
 from sklearn import datasets
+from pathlib import Path
+import pdb
+
+curr_dir = Path(__file__).parent
+
+
 def load_MSD():
-# Load the raw data.
+    # Load the raw data.
     num_attributes = 90
     names = ['Year'] + ['Attr_{}'.format(i) for i in range(num_attributes)]
-    df = pd.read_csv('YearPredictionMSD.txt', header=None, names=names)
+    df = pd.read_csv(curr_dir / 'YearPredictionMSD.txt', header=None, names=names)
 
-# Validate the data.
+    # Validate the data.
     num_examples = 515345
     assert len(df.columns) == num_attributes + 1
     assert len(df) == num_examples
     assert not df.isnull().values.any()
 
-
-# Train/test split. See "Data Set Information".
+    # Train/test split. See "Data Set Information".
     num_train = 463715
-    df = df.as_matrix()
+    df = df.values
     train = df[:num_train]
     test = df[num_train:]
     del df
 
-
-# Seperate inputs and outputs.
+    # Seperate inputs and outputs.
     X_train, y_train = train[:, 1:], train[:, 0]
     X_test, y_test = test[:, 1:], test[:, 0]
     del train
@@ -67,15 +71,33 @@ def load_boston():
     X = standardize.transform(X)
     return X
 
+def load_dataset(zone):
+    # load the raw data
+    data_path = curr_dir / '..' / 'data' / f'wind_{zone}.csv'
+    df = pd.read_csv(data_path)
+    
+    # train/test split
+    num_train = 463715
+    df = df.values
+    train = df[:num_train]
+    test = df[num_train:]
+    del df
+    
+    # seperate inputs and outputs
+    X_train, y_train = train[:, 1:], train[:, 0]
+    X_test, y_test = test[:, 1:], test[:, 0]
+    del train
+    del test
+    
+    
 
-
-def load_dataset(dataset):
-    if dataset == 'MSD':
-        X_train, y_train, X_test, y_test = load_MSD()
-        return X_train, y_train, X_test, y_test
-    if dataset == 'boston':
-        x = load_boston()
-        return x
+# def load_dataset(dataset):
+#     if dataset == 'MSD':
+#         X_train, y_train, X_test, y_test = load_MSD()
+#         return X_train, y_train, X_test, y_test
+#     if dataset == 'boston':
+#         x = load_boston()
+#         return x
     
     
 x = load_dataset('boston')
