@@ -14,5 +14,5 @@ for zone in ZONES:
     sub_df.iloc[:,0] = pd.to_datetime(sub_df.iloc[:,0], format="%d/%m/%Y")
     sub_df.set_index('date', inplace=True)
 
-    file_name = f'wind_{zone}.csv'
+    file_name = f'wind_{zone}_raw.csv'
     sub_df.to_csv(curr_dir / file_name)
