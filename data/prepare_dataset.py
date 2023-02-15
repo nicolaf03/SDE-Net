@@ -9,6 +9,7 @@ curr_dir = Path(__file__).parent
 for zone in ZONES:
     file_path = curr_dir / f'wind_{zone}.csv'
     df = pd.read_csv(file_path)
+    df['group'] = 0
     df['time_idx'] = df.index
     df.set_index('time_idx', inplace=True)
     
