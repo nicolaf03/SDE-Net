@@ -33,4 +33,4 @@ if device == 'cuda':
     torch.cuda.manual_seed(args.seed)
     
 print('load data:', args.zone)
-train_loader_inDomain, test_loader_inDomain = data_loader.getDataSet(args.zone, args.batch_size, args.test_batch_size)
+train_loader, test_loader = data_loader.getDataSet(args.zone, args.batch_size, args.test_batch_size)
