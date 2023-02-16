@@ -12,14 +12,14 @@ import numpy as np
 
 curr_dir = Path(__file__).parent
 
-def make_dataset(zone, H, h):
-    PATH = curr_dir / '..' / 'data' / f'wind_{zone}.csv'
+def make_dataset(self, zone, H, h):
+    PATH = curr_dir / '..' / 'data' / f'wind_{zone}_{"train" if self.train else "test"}.csv'
     data = pd.read_csv(PATH)
     value_array = np.array(data.iloc[:,1])
     res = []
     
     for i in range(len(data)-H):
-        sub_array = value_array[i:i+H]
+        sub_array = value_array[i:i+(H+h)]
         # x = sub_array[:-h]
         # y = sub_array[-h:]
         res.append((torch.from_numpy(sub_array[:-h]), torch.from_numpy(sub_array[-h:])))
@@ -46,12 +46,14 @@ class CustomTimeSeriesDataset(Dataset):
     
     def __init__(
         self, 
-        zone, 
-        H,
-        h,
-        transform=None, 
-        target_transform=None
+        zone: str, 
+        H: int,
+        h: int,
+        train: bool = True,
+        transform: Optional[Callable] = None, 
+        target_transform: Optional[Callable] = None
     ) -> None:
+        self.train = train
         self.data, self.targets = make_dataset(zone=zone, H=H, h=h)
         self.transform = transform
         self.target_transform = target_transform
