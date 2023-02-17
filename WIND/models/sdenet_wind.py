@@ -112,13 +112,13 @@ class SDENet_wind(nn.Module):
         self.downsampling_layers = nn.Sequential(
             #                                                                                                            [N,C,H]
             #                                                                                                            [128,1,28]
-            nn.Conv1d(in_channels=1, out_channels=dim, kernel_size=3, stride=1, padding=0, padding_mode='replicate'),   #[1,dim,26]
+            nn.Conv1d(in_channels=1, out_channels=dim, kernel_size=3, stride=1, padding=0, padding_mode='replicate'),   #[128,dim,26]
             norm(dim=dim),
             nn.ReLU(inplace=True),
-            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[1,dim,13]
+            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[128,dim,13]
             norm(dim=dim),
             nn.ReLU(inplace=True),
-            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[1,dim,6]
+            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[128,dim,6]
         )
         self.drift = Drift(dim=dim)
         self.diffusion = Diffusion(dim_in=dim, dim_out=dim)

@@ -57,8 +57,8 @@ if __name__ == '__main__':
     real_label = 0
     fake_label = 1
 
-    criterion = nn.CrossEntropyLoss()
-    criterion2 = nn.BCELoss()
+    criterion = nn.L1Loss()     #todo: cambiare loss
+    criterion2 = nn.BCELoss()   #todo: cambiare loss
 
     optimizer_F = optim.SGD(
         params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
@@ -90,11 +90,12 @@ if __name__ == '__main__':
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             #
             # training with in-domain data
-            inputs = inputs.to(device)      #[128, 1, 28]
-            targets = targets.to(device)    #[128, 1]
+            #
+            inputs = inputs.to(device)          #[128, 1, 28]
+            targets = targets.to(device)        #[128, 1]
             optimizer_F.zero_grad()
-            outputs = net(inputs)           #[128, 1]
-            loss = criterion(outputs, targets)
+            outputs = net(inputs)               #[128, 1]
+            loss = criterion(outputs, targets)  #todo: cambiare loss
             loss.backward()
             optimizer_F.step()
             train_loss += loss.item()
@@ -103,15 +104,17 @@ if __name__ == '__main__':
             correct += predicted.eq(targets).sum().item()
             #
             # training with out-of-domain data
+            #
+            # tensor full of zero
             label = torch.full((args.batch_size,1), float(real_label), device=device)
             optimizer_G.zero_grad()
             predict_in = net(inputs, training_diffusion=True)
-            loss_in = criterion2(predict_in, label)
+            loss_in = criterion2(predict_in, label)     #todo: cambiare loss
             loss_in.backward()
             label.fill_(fake_label)
             inputs_out = 2*torch.randn(args.batch_size,1, args.imageSize, args.imageSize, device = device)+inputs
             predict_out = net(inputs_out, training_diffusion=True)
-            loss_out = criterion2(predict_out, label)
+            loss_out = criterion2(predict_out, label)   #todo: cambiare loss
             loss_out.backward()
             train_loss_out += loss_out.item()
             train_loss_in += loss_in.item()
