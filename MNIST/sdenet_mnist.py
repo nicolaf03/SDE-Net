@@ -85,9 +85,10 @@ def train(epoch):
 
     ##training with in-domain data
     for batch_idx, (inputs, targets) in enumerate(train_loader_inDomain):
-        inputs, targets = inputs.to(device), targets.to(device)
+        inputs = inputs.to(device)      #[128, 1, 28, 28]
+        targets = targets.to(device)    #[128]
         optimizer_F.zero_grad()
-        outputs = net(inputs)
+        outputs = net(inputs)           #[128, 10]
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer_F.step()

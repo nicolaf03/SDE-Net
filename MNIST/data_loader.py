@@ -8,7 +8,7 @@ import pdb
 
 
 def getMNIST(batch_size, test_batch_size, img_size, **kwargs):
-    num_workers = kwargs.setdefault('num_workers', 1)
+    num_workers = kwargs.setdefault('num_workers', 0)
     kwargs.pop('input_size', None)
     print("Building MNIST data loader with {} workers".format(num_workers))
 
@@ -25,7 +25,6 @@ def getMNIST(batch_size, test_batch_size, img_size, **kwargs):
         shuffle=True, num_workers=num_workers, drop_last=True
     )
     ds.append(train_loader)
-    pdb.set_trace()
     test_loader = DataLoader(
         datasets.MNIST(root='../data/mnist', train=False, download=True, transform=transform_test),
         batch_size=test_batch_size, shuffle=False, num_workers=num_workers, drop_last=True

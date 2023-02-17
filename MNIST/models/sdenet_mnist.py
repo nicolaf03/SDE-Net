@@ -122,17 +122,25 @@ class SDENet_mnist(nn.Module):
         super(SDENet_mnist, self).__init__()
         self.layer_depth = layer_depth
         self.downsampling_layers = nn.Sequential(
-            nn.Conv2d(1, dim, 3, 1),
+            #                                [N,C,H,W]
+            #                                [128,1,28,28]
+            nn.Conv2d(1, dim, 3, 1, 0),     #[128,dim,26,26]
             norm(dim),
             nn.ReLU(inplace=True),
-            nn.Conv2d(dim, dim, 4, 2, 1),
+            nn.Conv2d(dim, dim, 4, 2, 1),   #[128,dim,13,13]
             norm(dim),
             nn.ReLU(inplace=True),
-            nn.Conv2d(dim, dim, 4, 2, 1),
+            nn.Conv2d(dim, dim, 4, 2, 1),   #[128,dim,6,6]
         )
         self.drift = Drift(dim)
         self.diffusion = Diffusion(dim, dim)
-        self.fc_layers = nn.Sequential(norm(dim), nn.ReLU(inplace=True), nn.AdaptiveAvgPool2d((1, 1)), Flatten(), nn.Linear(dim, 10))
+        self.fc_layers = nn.Sequential(
+            norm(dim), 
+            nn.ReLU(inplace=True), 
+            nn.AdaptiveAvgPool2d((1, 1)), 
+            Flatten(), 
+            nn.Linear(dim, 10)
+        )
         self.deltat = 6./self.layer_depth
         self.apply(init_params)
         self.sigma = 500
