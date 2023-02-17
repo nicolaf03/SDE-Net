@@ -25,7 +25,7 @@ def init_params(net):
 
 
 def norm(dim):
-    return nn.GroupNorm(min(10, dim), dim)
+    return nn.GroupNorm(min(32, dim), dim)
 
 
 class ConcatConv1d(nn.Module):
@@ -38,7 +38,7 @@ class ConcatConv1d(nn.Module):
         )
 
     def forward(self, t, x):    #???
-        tt = torch.ones_like(x[:, :1, :, :]) * t
+        tt = torch.ones_like(x[:, :1, :]) * t
         ttx = torch.cat([tt, x], 1)
         return self._layer(ttx)
     
@@ -106,17 +106,19 @@ class Diffusion(nn.Module):
 
 class SDENet_wind(nn.Module):
     
-    def __init__(self, layer_depth, dim=20):
+    def __init__(self, layer_depth, dim=64):
         super(SDENet_wind, self).__init__()
         self.layer_depth = layer_depth
         self.downsampling_layers = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=dim, kernel_size=3, stride=1, padding=1, padding_mode='replicate'),
+            #                                                                                                            [N,C,H]
+            #                                                                                                            [128,1,28]
+            nn.Conv1d(in_channels=1, out_channels=dim, kernel_size=3, stride=1, padding=0, padding_mode='replicate'),   #[1,dim,26]
             norm(dim=dim),
             nn.ReLU(inplace=True),
-            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'),
+            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[1,dim,13]
             norm(dim=dim),
             nn.ReLU(inplace=True),
-            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'),
+            nn.Conv1d(in_channels=dim, out_channels=dim, kernel_size=4, stride=2, padding=1, padding_mode='replicate'), #[1,dim,6]
         )
         self.drift = Drift(dim=dim)
         self.diffusion = Diffusion(dim_in=dim, dim_out=dim)
@@ -127,7 +129,7 @@ class SDENet_wind(nn.Module):
             Flatten(), 
             nn.Linear(in_features=dim, out_features=1)
         )
-        self.deltat = 6./self.layer_depth
+        self.deltat = 6./self.layer_depth   #? why 6./self.layer_depth
         self.apply(init_params)
         self.sigma = 500
     
@@ -137,9 +139,13 @@ class SDENet_wind(nn.Module):
             t = 0
             diffusion_term = self.sigma*self.diffusion(t, out)
             diffusion_term = torch.unsqueeze(input=diffusion_term, dim=2)
-            diffusion_term = torch.unsqueeze(input=diffusion_term, dim=3)
+            # diffusion_term = torch.unsqueeze(input=diffusion_term, dim=3)
             for i in range(self.layer_depth):
                 t = 6*(float(i))/self.layer_depth
+                #*
+                #*
+                #* STOCHASTIC DIFFERENTIAL EQUATION
+                #* (Euler-Maruyama)
                 out = out + self.drift(t, out)*self.deltat + diffusion_term*math.sqrt(self.deltat)*torch.randn_like(out).to(x)
             final_out = self.fc_layers(out)
         else:
@@ -149,7 +155,7 @@ class SDENet_wind(nn.Module):
 
 
 def test():
-    model = SDENet_wind(layer_depth=10, dim=20)
+    model = SDENet_wind(layer_depth=10, dim=64)
     return model
  
  

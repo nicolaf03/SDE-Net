@@ -37,7 +37,7 @@ def getDataSet(zone, H, h, batch_size, test_batch_size, **kwargs):
     return train_loader, test_loader
 
 if __name__ == '__main__':
-    train_loader, test_loader = getDataSet(zone='SUD', H=5, h=1, batch_size=256, test_batch_size=1000)
-    for batch_idx, (inputs, targets) in enumerate(test_loader):
+    train_loader, test_loader = getDataSet(zone='SUD', H=30, h=1, batch_size=128, test_batch_size=1000)
+    for batch_idx, (inputs, targets) in enumerate(train_loader):
         print(inputs.shape)
         print(targets.shape)

@@ -15,15 +15,16 @@ curr_dir = Path(__file__).parent
 def _load_data(self, zone, H, h):
     PATH = curr_dir / '..' / 'data' / f'wind_{zone}_{"train" if self.train else "test"}.csv'
     data = pd.read_csv(PATH)
-    value_array = np.array(data.iloc[:,1])
+    value_array = np.array(data.iloc[:,1], dtype='float32')
     # res = []
     values = []
     targets = []
     
     for i in range(len(data)-(H+h)):
         sub_array = value_array[i:i+(H+h)]
-        x = torch.from_numpy(sub_array[:-h]); values.append(x)
+        x = torch.from_numpy(np.expand_dims(sub_array[:-h],0)); values.append(x)
         y = torch.from_numpy(sub_array[-h:]); targets.append(y)
+        #y = torch.from_numpy(np.expand_dims(sub_array[-h:],0)); targets.append(y)
         #res.append((torch.from_numpy(sub_array[:-h]), torch.from_numpy(sub_array[-h:])))
     
     return values, targets
