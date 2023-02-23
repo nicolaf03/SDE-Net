@@ -57,8 +57,10 @@ if __name__ == '__main__':
     real_label = 0
     fake_label = 1
 
-    criterion = nn.L1Loss()     #todo: cambiare loss
-    criterion2 = nn.BCELoss()   #todo: cambiare loss
+    # todo: cambiare loss
+    criterion = nn.L1Loss()     
+    # criterion = nn.GaussianNLLLoss()
+    criterion2 = nn.BCELoss()   
 
     optimizer_F = optim.SGD(
         params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     # use a smaller sigma during training for training stability
     net.sigma = 20
 
-    # Training
+    # training
     def train(epoch):
         print('\nEpoch: %d' % epoch)
         net.train()
@@ -90,34 +92,45 @@ if __name__ == '__main__':
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             #
             # training with in-domain data
-            #
-            inputs = inputs.to(device)          #[128, 1, 28]
-            targets = targets.to(device)        #[128, 1]
             optimizer_F.zero_grad()
-            outputs = net(inputs)               #[128, 1]
-            loss = criterion(outputs, targets)  #todo: cambiare loss
+            
+            inputs = inputs.to(device)                          #[128, 1, 28]
+            targets = targets.to(device)                        #[128, 1]
+            outputs = net(inputs, training_diffusion=False)     #[128, 1]
+            
+            loss = criterion(outputs, targets)                  #todo: cambiare loss
             loss.backward()
-            optimizer_F.step()
             train_loss += loss.item()
             _, predicted = outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
+            
+            optimizer_F.step()
+            
             #
             # training with out-of-domain data
-            #
-            # tensor full of zero
-            label = torch.full((args.batch_size,1), float(real_label), device=device)
             optimizer_G.zero_grad()
+        
+            # tensor full of zeros
+            label = torch.full((args.batch_size,1), float(real_label), device=device)
             predict_in = net(inputs, training_diffusion=True)
-            loss_in = criterion2(predict_in, label)     #todo: cambiare loss
+            #
+            # distance between non-noisy data and 0
+            # binary cross entropy because there are only 2 classes: 0 (no noise) and 1 (maximum noise)
+            loss_in = criterion2(predict_in, label)
             loss_in.backward()
+            train_loss_in += loss_in.item()
+            
+            # tensor full of ones
             label.fill_(fake_label)
-            inputs_out = 2*torch.randn(args.batch_size,1, args.imageSize, args.imageSize, device = device)+inputs
+            inputs_out = inputs + 2 * torch.randn(args.batch_size, 1, args.imageSize, args.imageSize, device=device)
             predict_out = net(inputs_out, training_diffusion=True)
-            loss_out = criterion2(predict_out, label)   #todo: cambiare loss
+            # distance between noisy data and 1
+            # binary cross entropy because there are only 2 classes: 0 (no noise) and 1 (maximum noise)
+            loss_out = criterion2(predict_out, label)
             loss_out.backward()
             train_loss_out += loss_out.item()
-            train_loss_in += loss_in.item()
+            
             optimizer_G.step()
 
         print('Train epoch:{} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f} | Acc: {:.6f} ({}/{})'
