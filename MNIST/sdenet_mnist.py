@@ -85,30 +85,44 @@ def train(epoch):
 
     ##training with in-domain data
     for batch_idx, (inputs, targets) in enumerate(train_loader_inDomain):
-        inputs = inputs.to(device)      #[128, 1, 28, 28]
-        targets = targets.to(device)    #[128]
         optimizer_F.zero_grad()
-        outputs = net(inputs)           #[128, 10]
+        
+        inputs = inputs.to(device)                      #[128, 1, 28, 28]
+        targets = targets.to(device)                    #[128]
+        outputs = net(inputs, training_diffusion=True)  #[128, 10]
+        
         loss = criterion(outputs, targets)
         loss.backward()
-        optimizer_F.step()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
+        
+        optimizer_F.step()
+        
     #training with out-of-domain data
-        label = torch.full((args.batch_size,1), float(real_label), device=device)
         optimizer_G.zero_grad()
+        
+        # tensor full of zeros
+        label = torch.full((args.batch_size,1), float(real_label), device=device)
         predict_in = net(inputs, training_diffusion=True)
+        #
+        # distance between non-noisy data and 0
+        # binary cross entropy because there are only 2 classes: 0 (no noise) and 1 (maximum noise)
         loss_in = criterion2(predict_in, label)
         loss_in.backward()
+        train_loss_in += loss_in.item()
+        
+        # tensor full of ones
         label.fill_(fake_label)
-        inputs_out = 2*torch.randn(args.batch_size,1, args.imageSize, args.imageSize, device = device)+inputs
+        inputs_out = inputs + 2 * torch.randn(args.batch_size, 1, args.imageSize, args.imageSize, device=device)
         predict_out = net(inputs_out, training_diffusion=True)
+        # distance between noisy data and 1
+        # binary cross entropy because there are only 2 classes: 0 (no noise) and 1 (maximum noise)
         loss_out = criterion2(predict_out, label)
         loss_out.backward()
         train_loss_out += loss_out.item()
-        train_loss_in += loss_in.item()
+        
         optimizer_G.step()
 
     print('Train epoch:{} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f} | Acc: {:.6f} ({}/{})'
