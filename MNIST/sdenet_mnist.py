@@ -89,7 +89,7 @@ def train(epoch):
         
         inputs = inputs.to(device)                      #[128, 1, 28, 28]
         targets = targets.to(device)                    #[128]
-        outputs = net(inputs, training_diffusion=True)  #[128, 10]
+        outputs = net(inputs, training_diffusion=False) #[128, 10]
         
         loss = criterion(outputs, targets)
         loss.backward()
