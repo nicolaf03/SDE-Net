@@ -31,21 +31,6 @@ def _load_data(self, zone, H, h):
 
 
 class CustomTimeSeriesDataset(Dataset):
-    """`MNIST <http://yann.lecun.com/exdb/mnist/>`_ Dataset.
-
-    Args:
-        path_to_data (string): Root directory of dataset where ``MNIST/raw/train-images-idx3-ubyte``
-            and  ``MNIST/raw/t10k-images-idx3-ubyte`` exist.
-        train (bool, optional): If True, creates dataset from ``train-images-idx3-ubyte``,
-            otherwise from ``t10k-images-idx3-ubyte``.
-        download (bool, optional): If True, downloads the dataset from the internet and
-            puts it in root directory. If dataset is already downloaded, it is not
-            downloaded again.
-        transform (callable, optional): A function/transform that  takes in an PIL image
-            and returns a transformed version. E.g, ``transforms.RandomCrop``
-        target_transform (callable, optional): A function/transform that takes in the
-            target and transforms it.
-    """
     
     def __init__(
         self, 
@@ -75,6 +60,6 @@ class CustomTimeSeriesDataset(Dataset):
     
 if __name__ == '__main__':
     # transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-    dataset = CustomTimeSeriesDataset(zone='SUD', H=5, h=1)
+    dataset = CustomTimeSeriesDataset(zone='SUD', H=28, h=1)
     print(dataset[0])
     

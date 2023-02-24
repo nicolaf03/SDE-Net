@@ -8,6 +8,8 @@ import argparse
 import random
 import os
 import pdb
+import math
+import numpy as np
 
 import data_loader
 import models
@@ -20,14 +22,14 @@ if __name__ == '__main__':
     parser.add_argument('--lr2', default=0.01, type=float, help='learning rate of diffusion net')
     parser.add_argument('--training_out', action='store_false', default=True, help='training_with_out')
     parser.add_argument('--epochs', type=int, default=40, help='number of epochs to train')
-    parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
+    parser.add_argument('--eva_iter', default=1, type=int, help='number of passes when evaluation')
     #
     parser.add_argument('--zone', default='SUD', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=28, help='length of history')
     #
     parser.add_argument('--batch_size', type=int, default=128, help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=1000)
+    parser.add_argument('--test_batch_size', type=int, default=1)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--seed', type=float, default=0)
     parser.add_argument('--droprate', type=float, default=0.1, help='learning rate decay')
@@ -60,7 +62,17 @@ if __name__ == '__main__':
     # todo: cambiare loss
     criterion = nn.L1Loss()     
     # criterion = nn.GaussianNLLLoss()
-    criterion2 = nn.BCELoss()   
+    criterion2 = nn.BCELoss()
+    
+    def nll_loss(y, mean, sigma):
+        loss = torch.mean(torch.log(sigma) + (y - mean)**2 / (sigma**2))
+        return loss
+    
+    # def mse(y_pred, y_true):
+    #     loss = torch.mean((y_pred - y_true)**2)
+    #     return loss
+    
+    mse = nn.MSELoss()
 
     optimizer_F = optim.SGD(
         params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
@@ -75,6 +87,14 @@ if __name__ == '__main__':
         weight_decay=5e-4
     )
 
+    # optimizer_F = optim.AdamW(
+    #     params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
+    #     lr=0.001
+    # )
+    # optimizer_G = optim.AdamW(
+    #     params=[{'params': net.diffusion.parameters()}],
+    #     lr=0.001
+    # )
     # use a smaller sigma during training for training stability
     net.sigma = 20
 
@@ -96,14 +116,11 @@ if __name__ == '__main__':
             
             inputs = inputs.to(device)                          #[128, 1, 28]
             targets = targets.to(device)                        #[128, 1]
-            outputs = net(inputs, training_diffusion=False)     #[128, 1]
+            mu, sigma = net(inputs, training_diffusion=False)   #[128, 1]
             
-            loss = criterion(outputs, targets)                  #todo: cambiare loss
+            loss = nll_loss(targets, mu, sigma)                 #todo: cambiare loss
             loss.backward()
             train_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
             
             optimizer_F.step()
             
@@ -123,8 +140,9 @@ if __name__ == '__main__':
             
             # tensor full of ones
             label.fill_(fake_label)
-            inputs_out = inputs + 2 * torch.randn(args.batch_size, 1, args.imageSize, args.imageSize, device=device)
+            inputs_out = inputs + 2 * torch.randn(args.batch_size, 1, args.H, device=device)
             predict_out = net(inputs_out, training_diffusion=True)
+            #
             # distance between noisy data and 1
             # binary cross entropy because there are only 2 classes: 0 (no noise) and 1 (maximum noise)
             loss_out = criterion2(predict_out, label)
@@ -133,29 +151,26 @@ if __name__ == '__main__':
             
             optimizer_G.step()
 
-        print('Train epoch:{} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f} | Acc: {:.6f} ({}/{})'
-            .format(epoch, train_loss/(len(train_loader)), train_loss_in/len(train_loader), train_loss_out/len(train_loader), 100.*correct/total, correct, total))
+        print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f}'
+            .format(epoch, train_loss/(len(train_loader)), train_loss_in/len(train_loader), train_loss_out/len(train_loader)))
 
 
     def test(epoch):
         net.eval()
-        correct = 0
-        total = 0
+        test_loss = 0
         with torch.no_grad():
+            deltat = 1
             for batch_idx, (inputs, targets) in enumerate(test_loader):
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = 0
-                for j in range(args.eva_iter):
-                    current_batch = net(inputs)
-                    outputs = outputs + F.softmax(current_batch, dim = 1)
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+                mu, sigma = net(inputs)
+                # x_in = inputs[:,:,-1].view(-1)
+                # x_out = x_in + mu * deltat + sigma * math.sqrt(deltat) * torch.randn_like(x_in)
+                loss = mse(targets, mu)
+                test_loss += loss.item()
 
-                outputs = outputs/args.eva_iter
-                _, predicted = outputs.max(1)
-                total += targets.size(0)
-                correct += predicted.eq(targets).sum().item()
-
-            print('Test epoch: {} | Acc: {:.6f} ({}/{})'
-            .format(epoch, 100.*correct/total, correct, total))
+            print('Test epoch:{} \tLoss: {:.6f}'
+            .format(epoch, test_loss/len(test_loader)))
 
 
     for epoch in range(0, args.epochs):

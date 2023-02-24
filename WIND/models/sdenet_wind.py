@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-# import torch.nn.functional as F
+import torch.nn.functional as F
 # import random
 import torch.nn.init as init
 import math
@@ -127,7 +127,7 @@ class SDENet_wind(nn.Module):
             nn.ReLU(inplace=True), 
             nn.AdaptiveAvgPool1d(output_size=1), 
             Flatten(), 
-            nn.Linear(in_features=dim, out_features=1)
+            nn.Linear(in_features=dim, out_features=2)  # 2 outputs: mu and sigma
         )
         self.deltat = 6./self.layer_depth   #? why 6./self.layer_depth
         self.apply(init_params)
@@ -137,21 +137,22 @@ class SDENet_wind(nn.Module):
         out = self.downsampling_layers(x)
         if not training_diffusion:
             t = 0
-            diffusion_term = self.sigma*self.diffusion(t, out)
+            diffusion_term = self.sigma * self.diffusion(t, out)
             diffusion_term = torch.unsqueeze(input=diffusion_term, dim=2)
-            # diffusion_term = torch.unsqueeze(input=diffusion_term, dim=3)
             for i in range(self.layer_depth):
-                t = 6*(float(i))/self.layer_depth
-                #*
+                t = 6 * (float(i))/self.layer_depth
                 #*
                 #* STOCHASTIC DIFFERENTIAL EQUATION
                 #* (Euler-Maruyama)
-                out = out + self.drift(t, out)*self.deltat + diffusion_term*math.sqrt(self.deltat)*torch.randn_like(out).to(x)
+                out = out + self.drift(t,out) * self.deltat + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
             final_out = self.fc_layers(out)
+            mu = final_out[:,0]
+            sigma = F.softplus(final_out[:,1]) + 1e-3
+            return mu, sigma
         else:
             t = 0
             final_out = self.diffusion(t, out.detach())
-        return final_out
+            return final_out
 
 
 def test():

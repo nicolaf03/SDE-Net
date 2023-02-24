@@ -24,20 +24,22 @@ def getDataSet(zone, H, h, batch_size, test_batch_size, **kwargs):
         batch_size=batch_size,
         shuffle=True,
         # transform=transform_train,
-        num_workers=num_workers
+        num_workers=num_workers,
+        drop_last=True
     )
     test_loader = DataLoader(
         CustomTimeSeriesDataset(zone=zone, H=H, h=h, train=False),
         batch_size=test_batch_size,
         shuffle=True,
         # transform=transform_test,
-        num_workers=num_workers
+        num_workers=num_workers,
+        drop_last=True
     )
     
     return train_loader, test_loader
 
 if __name__ == '__main__':
-    train_loader, test_loader = getDataSet(zone='SUD', H=30, h=1, batch_size=128, test_batch_size=1000)
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
+    train_loader, test_loader = getDataSet(zone='SUD', H=28, h=1, batch_size=128, test_batch_size=1)
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
         print(inputs.shape)
         print(targets.shape)
