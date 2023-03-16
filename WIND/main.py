@@ -14,6 +14,8 @@ import numpy as np
 import data_loader
 import models
 
+import wandb
+
 
 def main():
 
@@ -28,7 +30,7 @@ def main():
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=100, help='length of history')
     #
-    parser.add_argument('--batch_size', type=int, default=1, help='input batch size for training')
+    parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=1)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--seed', type=float, default=0)
@@ -49,6 +51,7 @@ def main():
         cudnn.benchmark = True
         torch.cuda.manual_seed(args.seed)
         
+    
     print('load data:', args.zone)
     train_loader, test_loader = data_loader.getDataSet(args.zone, args.H, args.h, args.batch_size, args.test_batch_size)
 
@@ -84,7 +87,7 @@ def main():
             {'params': net.diffusion.parameters()}
         ],
         lr=args.lr,
-        momentum=0.5,
+        #momentum=0.5,
         weight_decay=5e-4
     )
     optimizer_G = optim.SGD(
@@ -170,6 +173,7 @@ def main():
         # print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f} | Loss_out: {:.6f}'
         # .format(epoch, train_loss/(len(train_loader)), train_loss_in/(len(train_loader)), train_loss_out/(len(train_loader))))
 
+        return train_loss / len(train_loader)
 
     def test(epoch):
         net.eval()
@@ -179,7 +183,6 @@ def main():
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
-                mu, sigma = net(inputs)
                 
                 current_mu = 0
                 N = 10
@@ -187,16 +190,22 @@ def main():
                     mu, sigma = net(inputs)
                     current_mu = current_mu + mu
                 current_mu = current_mu / N
-                loss = mse(targets, current_mu)
+                # todo EM
+                loss = mse(targets, current_mu) # todo
                 test_loss += loss.item()
 
             print(' Test epoch: {} \tLoss: {:.6f}'
             .format(epoch, test_loss/len(test_loader)))
+            
+        return test_loss / len(test_loader)
 
 
+    wandb.init(project='wind_neural')
     for epoch in range(0, args.epochs):
-        train(epoch)
-        test(epoch)
+        train_loss = train(epoch)
+        wandb.log({'train loss': train_loss})
+        test_loss = test(epoch)
+        wandb.log({'test loss': test_loss})
         if epoch in args.decreasing_lr:
             for param_group in optimizer_F.param_groups:
                 param_group['lr'] *= args.droprate
