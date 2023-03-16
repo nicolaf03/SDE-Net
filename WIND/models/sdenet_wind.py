@@ -37,7 +37,7 @@ class ConcatConv1d(nn.Module):
             dim_in + 1, dim_out, kernel_size=ksize, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias
         )
 
-    def forward(self, t, x):    #???
+    def forward(self, t, x):
         tt = torch.ones_like(x[:, :1, :]) * t
         ttx = torch.cat([tt, x], 1)
         return self._layer(ttx)
@@ -127,7 +127,8 @@ class SDENet_wind(nn.Module):
             nn.ReLU(inplace=True), 
             nn.AdaptiveAvgPool1d(output_size=1), 
             Flatten(), 
-            nn.Linear(in_features=dim, out_features=2)  # 2 outputs: mu and sigma
+            # nn.Linear(in_features=dim, out_features=2)  # 2 outputs: mu and sigma
+            nn.Linear(in_features=dim, out_features=1)  # 1 output
         )
         self.deltat = 6./self.layer_depth   #? why 6./self.layer_depth
         self.apply(init_params)
@@ -146,8 +147,9 @@ class SDENet_wind(nn.Module):
                 #* (Euler-Maruyama)
                 out = out + self.drift(t,out) * self.deltat + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
             final_out = self.fc_layers(out)
+            return final_out
             mu = final_out[:,0]
-            sigma = F.softplus(final_out[:,1]) + 1e-3
+            sigma = F.softplus(final_out[:,1]) + 1e-3   # smooth approximation of ReLu
             return mu, sigma
         else:
             t = 0

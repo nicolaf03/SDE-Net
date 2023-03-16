@@ -15,20 +15,20 @@ import data_loader
 import models
 
 
-if __name__ == '__main__':
+def main():
 
     parser = argparse.ArgumentParser(description='SDE CNN Training')
-    parser.add_argument('--lr', default=0.1, type=float, help='learning rate of drift net')
+    parser.add_argument('--lr', default=0.01, type=float, help='learning rate of drift net')
     parser.add_argument('--lr2', default=0.01, type=float, help='learning rate of diffusion net')
     parser.add_argument('--training_out', action='store_false', default=True, help='training_with_out')
     parser.add_argument('--epochs', type=int, default=40, help='number of epochs to train')
     parser.add_argument('--eva_iter', default=1, type=int, help='number of passes when evaluation')
     #
-    parser.add_argument('--zone', default='SUD', help='zone')
+    parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=28, help='length of history')
     #
-    parser.add_argument('--batch_size', type=int, default=128, help='input batch size for training')
+    parser.add_argument('--batch_size', type=int, default=1, help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=1)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--seed', type=float, default=0)
@@ -72,13 +72,22 @@ if __name__ == '__main__':
     #     loss = torch.mean((y_pred - y_true)**2)
     #     return loss
     
+    def mape(y_pred, y_true):
+        loss = torch.mean(torch.abs(y_pred - y_true) / y_true)
+        return loss
+    
     mse = nn.MSELoss()
 
     optimizer_F = optim.SGD(
-        params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
+        params=[
+            {'params': net.downsampling_layers.parameters()}, 
+            {'params': net.drift.parameters()}, 
+            {'params': net.fc_layers.parameters()},
+            {'params': net.diffusion.parameters()}
+        ],
         lr=args.lr,
         momentum=0.9,
-        weight_decay=5e-4
+        # weight_decay=5e-4
     )
     optimizer_G = optim.SGD(
         params=[{'params': net.diffusion.parameters()}],
@@ -116,14 +125,17 @@ if __name__ == '__main__':
             
             inputs = inputs.to(device)                          #[128, 1, 28]
             targets = targets.to(device)                        #[128, 1]
-            mu, sigma = net(inputs, training_diffusion=False)   #[128, 1]
+            # mu, sigma = net(inputs, training_diffusion=False)   #[128, 1]
+            predict = net(inputs, training_diffusion=False)     #[128, 1]
             
-            loss = nll_loss(targets, mu, sigma)                 #todo: cambiare loss
+            # loss = nll_loss(targets, mu, sigma)                 # risolto
+            loss = mse(predict, targets)
             loss.backward()
+            #pdb.set_trace()
             train_loss += loss.item()
             
             optimizer_F.step()
-            
+            '''
             #
             # training with out-of-domain data
             optimizer_G.zero_grad()
@@ -150,9 +162,13 @@ if __name__ == '__main__':
             train_loss_out += loss_out.item()
             
             optimizer_G.step()
+            '''
 
-        print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f}'
-            .format(epoch, train_loss/(len(train_loader)), train_loss_in/len(train_loader), train_loss_out/len(train_loader)))
+        # print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f}, Loss_out: {:.6f}'
+        #     .format(epoch, train_loss/(len(train_loader)), train_loss_in/len(train_loader), train_loss_out/len(train_loader)))
+        
+        print('Train epoch: {} \tLoss: {:.6f}'
+        .format(epoch, train_loss/(len(train_loader))))
 
 
     def test(epoch):
@@ -163,13 +179,14 @@ if __name__ == '__main__':
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
-                mu, sigma = net(inputs)
+                # mu, sigma = net(inputs)
+                x_out = net(inputs, training_diffusion=False)
                 # x_in = inputs[:,:,-1].view(-1)
                 # x_out = x_in + mu * deltat + sigma * math.sqrt(deltat) * torch.randn_like(x_in)
-                loss = mse(targets, mu)
+                loss = mse(x_out, targets)
                 test_loss += loss.item()
 
-            print('Test epoch:{} \tLoss: {:.6f}'
+            print(' Test epoch: {} \tLoss: {:.6f}'
             .format(epoch, test_loss/len(test_loader)))
 
 
@@ -188,3 +205,8 @@ if __name__ == '__main__':
         os.makedirs('./save_sdenet_wind')
     torch.save(net.state_dict(),'./save_sdenet_wind/final_model')
 
+
+if __name__ == '__main__':
+    
+    main()
+    

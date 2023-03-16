@@ -24,6 +24,8 @@ def _load_data(self, zone, H, h):
         sub_array = value_array[i:i+(H+h)]
         x = torch.from_numpy(np.expand_dims(sub_array[:-h],0)); values.append(x)
         y = torch.from_numpy(sub_array[-h:]); targets.append(y)
+        # x = torch.tensor(sub_array[:-h]); values.append(x)
+        # y = torch.tensor(sub_array[-h:]); targets.append(y)
         #y = torch.from_numpy(np.expand_dims(sub_array[-h:],0)); targets.append(y)
         #res.append((torch.from_numpy(sub_array[:-h]), torch.from_numpy(sub_array[-h:])))
     
