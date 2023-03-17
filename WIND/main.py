@@ -179,7 +179,7 @@ def main():
         net.eval()
         test_loss = 0
         with torch.no_grad():
-            deltat = 1
+            # todo deltat = 1
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
