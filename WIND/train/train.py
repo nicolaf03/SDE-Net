@@ -4,27 +4,58 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
+from pathlib import Path
+import time
 import argparse
 import random
 import os
 import pdb
 import math
 import numpy as np
+import json
 
-import data_loader
-import models
+
+from data_loader import data_loader
+from models.sdenet_wind import SDENet_wind
+from utils.log_utils import init_log, dispose_log
 
 import wandb
+os.environ['WANDB_MODE'] = 'offline'
 
 
-def main():
+def get_params(name, folder='parameters'):
+    params_filename = 'params_' + name + '.json'
+    with open(Path(folder) / params_filename) as json_file:
+        params = json.load(json_file)
+    return params
 
-    parser = argparse.ArgumentParser(description='SDE CNN Training')
+
+def train(parameters=None, plot=True, zone='mock'):
+    
+    # curr_dir = Path(__file__).parent
+    # folder = curr_dir / '..' / 'trained_models'
+
+    # if not os.path.exists(folder):
+    #     print(f'creating directory: {folder}')
+    #     os.mkdir(folder)
+        
+    # log_name = 'train_sde-net_model'
+    # log = init_log(log_name, curr_dir / '..' / 'logs' / (parameters + '_train.log'))
+    # log.info(f'parameters = {parameters}')
+    # start_time = time.time()
+    # log.info('loading model...')
+    
+    # model = SDENet_wind.load_params(curr_dir / '..'  / 'parameters', parameters, log_name)
+    # log.info('loading training data...')
+
+    #------------------------------------------------------------------------------------------
+    
+    parser = argparse.ArgumentParser(description='SDE-Net Training')
     parser.add_argument('--lr', default=0.01, type=float, help='learning rate of drift net')
     parser.add_argument('--lr2', default=0.01, type=float, help='learning rate of diffusion net')
     # parser.add_argument('--training_out', action='store_false', default=True, help='training_with_out')
     parser.add_argument('--epochs', type=int, default=40, help='number of epochs to train')
-    # parser.add_argument('--eva_iter', default=1, type=int, help='number of passes when evaluation')
+    parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
     #
     parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
@@ -119,8 +150,8 @@ def main():
             net.sigma = 0.5
 
         train_loss = 0
-        train_loss_in = 0
-        train_loss_out = 0
+        # train_loss_in = 0
+        # train_loss_out = 0
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             #
             # training with in-domain data
@@ -134,7 +165,6 @@ def main():
             loss = nll_loss(targets, mu, sigma)
             # loss = mse(predict, targets)
             loss.backward()
-            #pdb.set_trace()
             nn.utils.clip_grad_norm_(net.parameters(), 100.)
             train_loss += loss.item()
             
@@ -168,7 +198,7 @@ def main():
             # optimizer_G.step()
             
 
-        print('Train epoch: {} \tLoss: {:.6f}'
+        print('Train epoch: {} \tNLL: {:.6f}'
         .format(epoch, train_loss/(len(train_loader))))
         # print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f} | Loss_out: {:.6f}'
         # .format(epoch, train_loss/(len(train_loader)), train_loss_in/(len(train_loader)), train_loss_out/(len(train_loader))))
@@ -177,27 +207,39 @@ def main():
 
     def test(epoch):
         net.eval()
-        test_loss = 0
+        test_loss_mse = 0
+        test_loss_nll = 0
         with torch.no_grad():
-            # todo deltat = 1
+            deltat = 1
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
-                
+
                 current_mu = 0
-                N = 10
-                for i in range(N):
+                current_sigma = 0
+                for i in range(args.eva_iter):
                     mu, sigma = net(inputs)
                     current_mu = current_mu + mu
-                current_mu = current_mu / N
-                # todo EM
-                loss = mse(targets, current_mu) # todo
-                test_loss += loss.item()
+                    current_sigma = current_sigma + sigma
+                current_mu = current_mu / args.eva_iter
+                current_sigma = current_sigma / args.eva_iter
+                #*
+                #*
+                #* Euler-Maruyama
+                x_in = inputs[:,:,-1]
+                x_out = x_in \
+                    + current_mu * deltat \
+                        + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in)
+                
+                loss_mse = mse(targets, x_out)
+                test_loss_mse += loss_mse.item()
+                loss_nll = nll_loss(targets, current_mu, current_sigma)
+                test_loss_nll += loss_nll.item()
 
-            print(' Test epoch: {} \tLoss: {:.6f}'
-            .format(epoch, test_loss/len(test_loader)))
+            print(' Test epoch: {} \tNLL: {:.6f} \tMSE: {:.6f}'
+            .format(epoch, test_loss_nll/len(test_loader), test_loss_mse/len(test_loader)))
             
-        return test_loss / len(test_loader)
+        return test_loss_nll / len(test_loader)
 
 
     wandb.init(project='wind_neural')
@@ -214,12 +256,14 @@ def main():
                 param_group['lr'] *= args.droprate
 
 
-    if not os.path.isdir('./save_sdenet_wind'):
-        os.makedirs('./save_sdenet_wind')
-    torch.save(net.state_dict(),'./save_sdenet_wind/final_model_outofdomanin')
+    if not os.path.isdir('./WIND/trained_model'):
+        os.makedirs('./WIND/trained_model')
+    torch.save(net.state_dict(), f'./trained_model/model_{args.zone}')
 
 
 if __name__ == '__main__':
     
-    main()
-    
+    train()
+    # curr_dir = Path(__file__).parent
+    # params = get_params(folder=curr_dir / '..'  / 'parameters', name='CSUD_v11')
+    print(0)

@@ -21,6 +21,7 @@ from torch.nn.parameter import Parameter
 from torch.autograd import Variable
 from numpy.linalg import inv
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 def main():
@@ -29,16 +30,16 @@ def main():
     parser = argparse.ArgumentParser(description='Test code - measure the detection peformance')
     parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
     # parser.add_argument('--network', type=str, choices=['resnet', 'sdenet','mc_dropout'], default='resnet')
-    parser.add_argument('--network', type=str, default='mock')
+    parser.add_argument('--network', type=str, default='SUD')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size')
     parser.add_argument('--seed', type=float, default=0, help='random seed')
     #
-    parser.add_argument('--zone', default='mock', help='zone')
+    parser.add_argument('--zone', default='SUD', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=100, help='length of history')
     #
     parser.add_argument('--out_dataset', required=False, help='out-of-dist dataset: cifar10 | svhn | imagenet | lsun')
-    parser.add_argument('--pre_trained_net', default='./save_sdenet_wind/final_model', help="path to pre trained_net")
+    parser.add_argument('--pre_trained_net', default='./save_sdenet_wind/model_SUD', help="path to pre trained_net")
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--test_batch_size', type=int, default=1)
 
@@ -77,14 +78,16 @@ def main():
             loss = torch.mean((y_pred - y_true)**2)
             return loss
 
-
-    def generate_target():
+    def make_predictions(plot: bool = False):
         model.eval()  
         test_loss = 0
         total = 0
         f1 = open('%s/confidence_Base_In.txt'%outf, 'w')
 
         with torch.no_grad():
+            y_true = []
+            y_pred = []
+            
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
@@ -102,6 +105,11 @@ def main():
                         Mean = torch.cat((Mean, torch.unsqueeze(mu,1)), dim=1)
                         
                 current_mu = current_mu / args.eva_iter
+                
+                y_true.append(targets.item())
+                y_pred.append(current_mu.item())
+                # print(f'true: {targets.item()} \tpredicted: {current_mu.item()}')
+                
                 loss = mse(targets, current_mu)
                 test_loss += loss.item()
                 
@@ -114,11 +122,20 @@ def main():
 
         print('\nFinal RMSE: {}'
         .format(np.sqrt(test_loss/len(test_loader))))
+        
+        if plot:
+            plt.figure()
+            plt.plot(range(len(y_pred)), y_pred, label='predicted', c='red')
+            plt.plot(range(len(y_true)), y_true, label='true', c='black')
+            plt.show()
+        
+        return y_true, y_pred
 
 
 
-    print('generate log from in-distribution data')
-    generate_target()
+    # print('generate log from in-distribution data')
+    make_predictions(plot=True)
+    
     # print('generate log  from out-of-distribution data')
     # generate_non_target()
     # print('calculate metrics for OOD')

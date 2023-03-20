@@ -13,7 +13,7 @@ import numpy as np
 curr_dir = Path(__file__).parent
 
 def _load_data(self, zone, H, h):
-    PATH = curr_dir / '..' / 'data' / f'wind_{zone}_{"train" if self.train else "test"}.csv'
+    PATH = curr_dir / 'data' / f'wind_{zone}_{"train" if self.train else "test"}.csv'
     data = pd.read_csv(PATH)
     value_array = np.array(data.iloc[:,1], dtype='float32')
     # res = []

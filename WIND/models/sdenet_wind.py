@@ -4,6 +4,9 @@ import torch.nn.functional as F
 # import random
 import torch.nn.init as init
 import math
+from pathlib import Path
+import json
+from utils.log_utils import init_log
 
 __all__ = ['SDENet_wind']
 
@@ -52,7 +55,7 @@ class Diffusion(nn.Module):
     
 
 class SDENet_wind(nn.Module):
-    def __init__(self, layer_depth, H):
+    def __init__(self, layer_depth, H, zone=None, params=None, log_name=None):
         super(SDENet_wind, self).__init__()
         self.layer_depth = layer_depth
         self.downsampling_layers = nn.Linear(H, 50)
@@ -65,6 +68,41 @@ class SDENet_wind(nn.Module):
         self.deltat = 4./self.layer_depth
         # self.apply(init_params)
         self.sigma = 5
+        
+        if log_name is None:
+            self.log_name = 'sde-net_model'
+            init_log(self.log_name, log_file=None, mode='w+')
+        else:
+            self.log_name = log_name
+        '''    
+        if params is not None:
+            self.custom_params = params['custom']
+            self.lgb_params = params['sde-net']
+        else:
+            if zone is None:
+                raise ValueError('you should set the params or the zone!')
+
+            self.custom_params = {
+                'zone': zone,
+                'max_iterations': 40,
+                # 'early_stopping_rounds': 100,
+                # 'validate_prev_year': [],
+                # 'weights_strategy': {},
+            }
+            self.sdeNet_params = {
+                # 'task': 'train',
+                # 'objective': 'regression',
+                # 'metric': 'mape',
+                # 'is_unbalance': 'true',
+                # 'boosting': 'gbdt',
+                # 'num_leaves': 31,
+                # 'feature_fraction': 1.0,
+                # 'bagging_fraction': 1.0,
+                # 'bagging_freq': 0,
+                # 'learning_rate': 0.05,
+                # 'verbose': -1,
+            }
+        '''
     
     def forward(self, x, training_diffusion=False):
         out = self.downsampling_layers(x)
@@ -88,6 +126,15 @@ class SDENet_wind(nn.Module):
             final_out = self.diffusion(t, out.detach())
             sigma = final_out[:,:,0]
             return sigma
+        
+    
+    @staticmethod
+    def load_params(folder, name, log_name=None):
+        params_filename = 'params_' + name + '.json'
+        with open(Path(folder) / params_filename) as json_file:
+            params = json.load(json_file)
+
+        return SDENet_wind(params=params, log_name=log_name)
 
 
 def test():
