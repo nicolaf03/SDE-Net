@@ -9,14 +9,20 @@ import time
 import argparse
 import random
 import os
+import sys
+import path
 import pdb
 import math
 import numpy as np
 import json
 
+# directory reach
+directory = path.Path(__file__).abspath()
+# setting path
+sys.path.append(directory.parent.parent)
 
 from data_loader import data_loader
-from models.sdenet_wind import SDENet_wind
+import models
 from utils.log_utils import init_log, dispose_log
 
 import wandb
