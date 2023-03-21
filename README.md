@@ -8,6 +8,18 @@ Lingkai Kong, Jimeng Sun and Chao Zhang, SDE-Net: Equipping Deep Neural Network 
 ![SDE-Net](figure/illustration.png)
 
 
+## Setup
+
+Il progetto utilizza Python 3.10.9 e pip 22.3.1
+Creare un ambiente virtuale locale con venv
+
+## Environment
+
+Aggiungi il modulo WIND al PYTHONPATH (aggiungi la seguente stringa al tuo activate)
+```
+PYTHONPATH = <YOUR_PATH>/dolomitiBot
+```
+
 
 ## Training & Evaluation
 

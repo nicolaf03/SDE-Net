@@ -16,17 +16,12 @@ import math
 import numpy as np
 import json
 
-# directory reach
-directory = path.Path(__file__).abspath()
-# setting path
-sys.path.append(directory.parent.parent)
-
 from data_loader import data_loader
 import models
 from utils.log_utils import init_log, dispose_log
 
 import wandb
-os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'online'
 
 
 def get_params(name, folder='parameters'):
@@ -124,7 +119,7 @@ def train(parameters=None, plot=True, zone='mock'):
             {'params': net.diffusion.parameters()}
         ],
         lr=args.lr,
-        #momentum=0.5,
+        #momentum=0.4,
         weight_decay=5e-4
     )
     optimizer_G = optim.SGD(
@@ -261,10 +256,10 @@ def train(parameters=None, plot=True, zone='mock'):
             for param_group in optimizer_G.param_groups:
                 param_group['lr'] *= args.droprate
 
-
+    print('Saving model...')
     if not os.path.isdir('./WIND/trained_model'):
         os.makedirs('./WIND/trained_model')
-    torch.save(net.state_dict(), f'./trained_model/model_{args.zone}')
+    torch.save(net.state_dict(), f'./WIND/trained_model/model_{args.zone}')
 
 
 if __name__ == '__main__':
