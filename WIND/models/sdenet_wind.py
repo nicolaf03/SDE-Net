@@ -155,8 +155,8 @@ class SDENet_wind(nn.Module):
         self.train_params['valid_month'] = valid_month
         self.train_params['trained_on'] = str(date.today())
 
-        df_train = self.features[start_train:end_train]
-        df_valid = self.features[valid_month]
+        df_train = self.features[start_train:end_train]     #? questi dovrebbero essere data loader?
+        df_valid = self.features[valid_month]               #?
 
         # remove valid_set from train_set
         index_diff = df_train.index.difference(df_valid.index)
