@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import data_loader
+from data_loader import data_loader
 import numpy as np
 import torchvision.utils as vutils
 # import calculate_log as callog
@@ -30,16 +30,16 @@ def main():
     parser = argparse.ArgumentParser(description='Test code - measure the detection peformance')
     parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
     # parser.add_argument('--network', type=str, choices=['resnet', 'sdenet','mc_dropout'], default='resnet')
-    parser.add_argument('--network', type=str, default='SUD')
+    parser.add_argument('--network', type=str, default='mock')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size')
     parser.add_argument('--seed', type=float, default=0, help='random seed')
     #
-    parser.add_argument('--zone', default='SUD', help='zone')
+    parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=100, help='length of history')
     #
     parser.add_argument('--out_dataset', required=False, help='out-of-dist dataset: cifar10 | svhn | imagenet | lsun')
-    parser.add_argument('--pre_trained_net', default='./save_sdenet_wind/model_SUD', help="path to pre trained_net")
+    parser.add_argument('--pre_trained_net', default='./WIND/trained_model/model_mock', help="path to pre trained_net")
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--test_batch_size', type=int, default=1)
 
@@ -75,8 +75,8 @@ def main():
 
 
     def mse(y_pred, y_true):
-            loss = torch.mean((y_pred - y_true)**2)
-            return loss
+        loss = torch.mean((y_pred - y_true)**2)
+        return loss
 
     def make_predictions(plot: bool = False):
         model.eval()  
