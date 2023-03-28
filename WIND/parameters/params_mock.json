@@ -1,0 +1,21 @@
+{
+  "custom": {
+    "name": "mock_model",
+    "zone": "mock",
+    "epochs": 40,
+    "H": 100,
+    "h": 1
+  },
+  "sde-net": {
+    "task": "train",
+    "batch_size": 32,
+    "test_batch_size": 1,
+    "droprate": 0.1,
+    "lr": 0.01,
+    "lr2": 0.01,
+    "decreasing_lr": [20],
+    "decreasing_lr2": [],
+    "eva_iter": 5
+  }
+}
+

@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import random
 import torch.nn.init as init
+
 import math
 from pathlib import Path
 import json
+import pandas as pd
+
 from utils.log_utils import init_log
+import utils.csv_utils as csv_utils
 
 __all__ = ['SDENet_wind']
 
@@ -74,7 +77,7 @@ class SDENet_wind(nn.Module):
             init_log(self.log_name, log_file=None, mode='w+')
         else:
             self.log_name = log_name
-        '''    
+        
         if params is not None:
             self.custom_params = params['custom']
             self.lgb_params = params['sde-net']
@@ -102,7 +105,7 @@ class SDENet_wind(nn.Module):
                 # 'learning_rate': 0.05,
                 # 'verbose': -1,
             }
-        '''
+        
     
     def forward(self, x, training_diffusion=False):
         out = self.downsampling_layers(x)
@@ -127,6 +130,33 @@ class SDENet_wind(nn.Module):
             sigma = final_out[:,:,0]
             return sigma
         
+    
+    def load_training_data(self, historic_folder):
+        #todo: importare il validation set
+        self.data = SDENet_wind._load_historic_data(historic_folder, self.custom_params['zone'])
+        zone = self.custom_params['zone']
+        if self.train_params is None:
+            self.train_params = dict()
+        self.train_params['training_data'] = f'wind_{zone.upper()}_train.csv'
+        self.features = None
+        
+        
+    @staticmethod
+    def _load_historic_data(folder, zone):
+        filename = f'wind_{zone.upper()}_train.csv'
+        data_file_path = folder / filename
+        df = csv_utils.load_aggregated_data(data_file_path)
+
+        print(f'Historical data are from: {df["date"].min()} - to: {df["date"].max()}')
+
+        all_datetimes = pd.DataFrame(pd.date_range(df['date'].min(), df['date'].max(), freq='D'), columns=['date'])
+        df = all_datetimes.merge(df, on=['date'], how='outer')
+        df.index = df['date']
+
+        df.dropna(inplace=True)
+
+        return df
+    
     
     @staticmethod
     def load_params(folder, name, log_name=None):

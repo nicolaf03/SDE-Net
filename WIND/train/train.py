@@ -6,6 +6,7 @@ import torch.backends.cudnn as cudnn
 
 from pathlib import Path
 import time
+from datetime import timedelta
 import argparse
 import random
 import os
@@ -18,6 +19,7 @@ import json
 
 from data_loader import data_loader
 import models
+from models import SDENet_wind
 from utils.log_utils import init_log, dispose_log
 
 import wandb
@@ -33,21 +35,29 @@ def get_params(name, folder='parameters'):
 
 def train(parameters=None, plot=True, zone='mock'):
     
-    # curr_dir = Path(__file__).parent
-    # folder = curr_dir / '..' / 'trained_models'
+    curr_dir = Path(__file__).parent
+    folder = curr_dir / '..' / 'trained_models'
 
-    # if not os.path.exists(folder):
-    #     print(f'creating directory: {folder}')
-    #     os.mkdir(folder)
+    if not os.path.exists(folder):
+        print(f'creating directory: {folder}')
+        os.mkdir(folder)
         
-    # log_name = 'train_sde-net_model'
-    # log = init_log(log_name, curr_dir / '..' / 'logs' / (parameters + '_train.log'))
-    # log.info(f'parameters = {parameters}')
-    # start_time = time.time()
-    # log.info('loading model...')
+    log_name = 'train_sde-net_model'
+    log = init_log(log_name, curr_dir / '..' / 'logs' / (parameters + '_train.log'))
+    log.info(f'parameters = {parameters}')
+    start_time = time.time()
     
-    # model = SDENet_wind.load_params(curr_dir / '..'  / 'parameters', parameters, log_name)
-    # log.info('loading training data...')
+    log.info('loading model...')
+    model = SDENet_wind.load_params(curr_dir / '..'  / 'parameters', parameters, log_name)
+    
+    log.info('loading training data...')
+    model.load_training_data(curr_dir / '..' / 'data')
+    
+    log.info('train...')
+    model.train(start_train, end_train, test_month, valid_month, plot=plot)
+    
+    log.info(f'elapsed time: {str(timedelta(seconds=time.time() - start_time))}')
+    
 
     #------------------------------------------------------------------------------------------
     
