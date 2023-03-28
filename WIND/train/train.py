@@ -58,6 +58,12 @@ def train(parameters=None, plot=True, zone='mock'):
     
     log.info(f'elapsed time: {str(timedelta(seconds=time.time() - start_time))}')
     
+    model_name = f'{parameters}'
+    log.info(f'save model: {model_name}')
+    files = model.save_model(folder, model_name)
+    
+    dispose_log(log)
+    
 
     #------------------------------------------------------------------------------------------
     

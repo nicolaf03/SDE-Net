@@ -7,6 +7,8 @@ import math
 from pathlib import Path
 import json
 import pandas as pd
+import logging
+from datetime import date
 
 from utils.log_utils import init_log
 import utils.csv_utils as csv_utils
@@ -130,6 +132,125 @@ class SDENet_wind(nn.Module):
             sigma = final_out[:,:,0]
             return sigma
         
+        
+    
+        
+        
+    def train(self, start_train, end_train, valid_month, plot=False):
+        log = logging.getLogger(self.log_name)
+        
+        if self.data is None:
+            raise ValueError('you must call \'load_training_data\' before \'train\' !')
+
+        # todo: valutare di aggiungere in seguito (es: temperature)
+        if self.features is None:
+            self.features = self._compute_features()
+
+        log.info(f'validation month: {valid_month}')
+
+        if self.train_params is None:
+            self.train_params = dict()
+        self.train_params['start_train'] = start_train
+        self.train_params['end_train'] = end_train
+        self.train_params['valid_month'] = valid_month
+        self.train_params['trained_on'] = str(date.today())
+
+        df_train = self.features[start_train:end_train]
+        df_valid = self.features[valid_month]
+
+        # remove valid_set from train_set
+        index_diff = df_train.index.difference(df_valid.index)
+        df_train = df_train.loc[index_diff]
+
+        print(f"Final data used: train {len(df_train)} - valid {len(df_valid)}")
+        print(f"Train data from: {df_train.index.min()} to: {df_train.index.max()}")
+        print(f"Valid data from: {df_valid.index.min()} to: {df_valid.index.max()}")
+        
+        
+        # train_loader, test_loader = data_loader.getDataSet(args.zone, args.H, args.h, args.batch_size, args.test_batch_size)
+        
+        '''
+        def _train(self, x_train, x_valid, feat_names, cat_feat, early_stopping_rounds, num_iterations):
+            log = logging.getLogger(self.log_name)
+
+            train = lgb.Dataset(x_train, label=y_train, free_raw_data=False, weight=weights,
+                                feature_name=feat_names, categorical_feature=cat_feat)
+
+            if x_valid is not None and y_valid is not None:
+                valid = lgb.Dataset(x_valid, label=y_valid, reference=train, free_raw_data=False,
+                                    feature_name=feat_names, categorical_feature=cat_feat)
+                dataset_names = ['train', 'valid']
+                datasets = [train, valid]
+            else:
+                dataset_names = ['train']
+                datasets = [train]
+
+            result = dict()
+            model = lgb.train(self.lgb_params, train,
+                            num_boost_round=num_iterations,
+                            early_stopping_rounds=early_stopping_rounds,
+                            categorical_feature=cat_feat,
+                            valid_sets=datasets,
+                            valid_names=dataset_names,
+                            evals_result=result,
+                            verbose_eval=False)
+
+            return model, result
+        '''
+        
+        
+        #------------------------------
+
+        self.trained_model, result = self._train(
+            df_train.loc[:, features], df_train.target, df_valid.loc[:, features], df_valid.target,
+            features, cat_feat,
+            early_stopping_rounds=self.custom_params['early_stopping_rounds'],
+            num_iterations=self.custom_params['max_iterations'],
+            train_weights=train_weights
+        )
+        if plot:
+            lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train metric {self.custom_params['zone']}")
+            pyplot.vlines(x = self.trained_model.best_iteration, ymin=0, ymax=0.3, colors="red")
+            pyplot.show()
+
+        # removes_also_august
+        #if self.custom_params["zone"] == 'NORD':
+        #    df_train = df_train.loc[~((df_train.index.month == 8) & (df_train.index.year == 2020)),]
+        #    print(f"Removed 2020-08 for nod7 training {len(df_train)}")
+
+        self.trained_model_nod7, result = self._train(
+            df_train.loc[:, features_without_d7], df_train.target, df_valid.loc[:, features_without_d7], df_valid.target,
+            features_without_d7, cat_feat_without_d7,
+            early_stopping_rounds=self.custom_params['early_stopping_rounds'],
+            num_iterations=self.custom_params['max_iterations'],
+            train_weights=train_weights)
+        if plot:
+            lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train without d7 metric {self.custom_params['zone']}")
+            pyplot.vlines(x = self.trained_model_nod7.best_iteration, ymin=0, ymax=0.3, colors="red")
+
+        # valid_err = result['valid'][self.lgb_params['metric']][-1]
+        
+        
+    def _compute_features(self):
+        #todo: sistema
+        data = self.data
+        features = data.copy()
+        start_date = features.index.min()
+        end_date = features.index.max()
+
+        # consumption normalization by zone max power
+        # todo
+
+        features = features.loc[start_date:end_date]
+
+        # todo
+        # features = features.join(self.temp)
+        # # fill NaNs in temps columns
+        # temp_cols = list(self.temp.columns)
+        # features.loc[:, temp_cols] = features[temp_cols].fillna(method='ffill').fillna(method='bfill')
+
+        return features
+    
     
     def load_training_data(self, historic_folder):
         #todo: importare il validation set
