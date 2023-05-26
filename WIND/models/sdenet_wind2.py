@@ -69,7 +69,7 @@ class SDENet_wind(nn.Module):
         self.diffusion = Diffusion()
         self.fc_layers = nn.Sequential(
             nn.ReLU(inplace=True),
-            nn.Linear(50, 2)
+            nn.Linear(50, 1)
         )
         self.deltat = 4./self.layer_depth
         # self.apply(init_params)
@@ -95,23 +95,8 @@ class SDENet_wind(nn.Module):
                     + self.drift(t,out) * self.deltat \
                         + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
             final_out = self.fc_layers(out)
-            mu = final_out[:,:,0]
-            sigma = F.softplus(final_out[:,:,1]) + 1e-3
-            return mu, sigma
-        else:
-            t = 0
-            final_out = self.diffusion(t, out.detach())
-            sigma = final_out[:,:,0]
-            return sigma
-        
-    
-    @staticmethod
-    def load_params(folder, name, log_name=None):
-        params_filename = 'params_' + name + '.json'
-        with open(Path(folder) / params_filename) as json_file:
-            params = json.load(json_file)
-
-        return SDENet_wind(params=params, log_name=log_name)
+            final_out = final_out.squeeze(dim=1)
+            return final_out
 
 
 def test():

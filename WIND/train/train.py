@@ -33,29 +33,11 @@ def get_params(name, folder='parameters'):
 
 def train(parameters=None, plot=True, zone='mock'):
     
-    # curr_dir = Path(__file__).parent
-    # folder = curr_dir / '..' / 'trained_models'
-
-    # if not os.path.exists(folder):
-    #     print(f'creating directory: {folder}')
-    #     os.mkdir(folder)
-        
-    # log_name = 'train_sde-net_model'
-    # log = init_log(log_name, curr_dir / '..' / 'logs' / (parameters + '_train.log'))
-    # log.info(f'parameters = {parameters}')
-    # start_time = time.time()
-    # log.info('loading model...')
-    
-    # model = SDENet_wind.load_params(curr_dir / '..'  / 'parameters', parameters, log_name)
-    # log.info('loading training data...')
-
-    #------------------------------------------------------------------------------------------
-    
     parser = argparse.ArgumentParser(description='SDE-Net Training')
     parser.add_argument('--lr', default=0.01, type=float, help='learning rate of drift net')
     parser.add_argument('--lr2', default=0.01, type=float, help='learning rate of diffusion net')
     # parser.add_argument('--training_out', action='store_false', default=True, help='training_with_out')
-    parser.add_argument('--epochs', type=int, default=40, help='number of epochs to train')
+    parser.add_argument('--epochs', type=int, default=30, help='number of epochs to train')
     parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
     #
     parser.add_argument('--zone', default='mock', help='zone')
@@ -200,6 +182,7 @@ def train(parameters=None, plot=True, zone='mock'):
             
 
         print('Train epoch: {} \tNLL: {:.6f}'
+        # print('Train epoch: {} \tMSE: {:.6f}'
         .format(epoch, train_loss/(len(train_loader))))
         # print('Train epoch: {} \tLoss: {:.6f} | Loss_in: {:.6f} | Loss_out: {:.6f}'
         # .format(epoch, train_loss/(len(train_loader)), train_loss_in/(len(train_loader)), train_loss_out/(len(train_loader))))
@@ -232,6 +215,8 @@ def train(parameters=None, plot=True, zone='mock'):
                     + current_mu * deltat \
                         + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in)
                 
+                # x_out = net(inputs, training_diffusion=False)
+                
                 loss_mse = mse(targets, x_out)
                 test_loss_mse += loss_mse.item()
                 loss_nll = nll_loss(targets, current_mu, current_sigma)
@@ -259,7 +244,7 @@ def train(parameters=None, plot=True, zone='mock'):
     print('Saving model...')
     if not os.path.isdir('./WIND/trained_model'):
         os.makedirs('./WIND/trained_model')
-    torch.save(net.state_dict(), f'./WIND/trained_model/model_{args.zone}')
+    torch.save(net.state_dict(), f'./WIND/trained_model/model_{args.zone}_1')
 
 
 if __name__ == '__main__':

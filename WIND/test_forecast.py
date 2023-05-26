@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import data_loader
+from data_loader import data_loader
 import numpy as np
 import torchvision.utils as vutils
 # import calculate_log as callog
@@ -24,22 +24,22 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def main():
+def main(eva_iter, plot):
     
     # Training settings
     parser = argparse.ArgumentParser(description='Test code - measure the detection peformance')
-    parser.add_argument('--eva_iter', default=5, type=int, help='number of passes when evaluation')
+    parser.add_argument('--eva_iter', default=eva_iter, type=int, help='number of passes when evaluation')
     # parser.add_argument('--network', type=str, choices=['resnet', 'sdenet','mc_dropout'], default='resnet')
-    parser.add_argument('--network', type=str, default='SUD')
+    parser.add_argument('--network', type=str, default='mock')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size')
     parser.add_argument('--seed', type=float, default=0, help='random seed')
     #
-    parser.add_argument('--zone', default='SUD', help='zone')
+    parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
     parser.add_argument('--H', default=100, help='length of history')
     #
     parser.add_argument('--out_dataset', required=False, help='out-of-dist dataset: cifar10 | svhn | imagenet | lsun')
-    parser.add_argument('--pre_trained_net', default='./save_sdenet_wind/model_SUD', help="path to pre trained_net")
+    parser.add_argument('--pre_trained_net', default='./WIND/trained_model/model_mock_1', help="path to pre trained_net")
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--test_batch_size', type=int, default=1)
 
@@ -77,21 +77,27 @@ def main():
     def mse(y_pred, y_true):
             loss = torch.mean((y_pred - y_true)**2)
             return loss
+    def mape(y_pred, y_true):
+        loss = torch.mean(torch.abs(y_pred - y_true) / y_true)
+        return loss
 
     def make_predictions(plot: bool = False):
         model.eval()  
         test_loss = 0
+        test_loss2 = 0
         total = 0
         f1 = open('%s/confidence_Base_In.txt'%outf, 'w')
 
         with torch.no_grad():
             y_true = []
             y_pred = []
+            y_pred2 = []
             
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
                 mu, sigma = model(inputs)
+                # predicts = model(inputs)
                 
                 current_mu = 0
                 for i in range(args.eva_iter):
@@ -105,13 +111,21 @@ def main():
                         Mean = torch.cat((Mean, torch.unsqueeze(mu,1)), dim=1)
                         
                 current_mu = current_mu / args.eva_iter
+                # x_out = current_mu + torch.mean(Sigma).item() * torch.randn_like(current_mu)
                 
                 y_true.append(targets.item())
                 y_pred.append(current_mu.item())
-                # print(f'true: {targets.item()} \tpredicted: {current_mu.item()}')
+                # y_pred2.append(x_out.item())
+                # y_pred.append(predicts.item())
                 
-                loss = mse(targets, current_mu)
+                # print(f'(y_pred, y_true) = ({round(current_mu.item(),3)}, {round(targets.item(),3)})')
+                
+                # loss = mse(targets, current_mu)
+                loss = mape(current_mu, targets)
+                # loss2 = mse(targets, x_out)
+                # loss = mse(targets, predicts)
                 test_loss += loss.item()
+                # test_loss2 += loss2.item()
                 
                 Var_mean = Mean.std(dim=1)
                 for i in range(inputs.size(0)):
@@ -120,21 +134,30 @@ def main():
 
         f1.close()
 
-        print('\nFinal RMSE: {}'
-        .format(np.sqrt(test_loss/len(test_loader))))
+        # err = np.sqrt(test_loss/len(test_loader))
+        # print('\nFinal RMSE: {}'
+        # .format(err))
+        
+        err = test_loss/len(test_loader)
+        print('\nFinal MAPE: {}'
+        .format(err))
+        
+        # print('\nFinal MSE 2: {}'
+        # .format(np.sqrt(test_loss2/len(test_loader))))
         
         if plot:
             plt.figure()
             plt.plot(range(len(y_pred)), y_pred, label='predicted', c='red')
             plt.plot(range(len(y_true)), y_true, label='true', c='black')
+            # plt.plot(range(len(y_pred2)), y_pred2, label='predicted 2', c='blue')
             plt.show()
         
-        return y_true, y_pred
+        return y_true, y_pred, err
 
 
 
     # print('generate log from in-distribution data')
-    make_predictions(plot=True)
+    _, _, err = make_predictions(plot=plot)
     
     # print('generate log  from out-of-distribution data')
     # generate_non_target()
@@ -142,8 +165,15 @@ def main():
     # callog.metric(outf, 'OOD')
     # print('calculate metrics for mis')
     # callog.metric(outf, 'mis')
+    
+    return err
 
 
 if __name__ == '__main__':
     
-    main()
+    err_list = []
+    for eva_iter in [5]:
+        print(f'eva_iter = {eva_iter}')
+        err_list.append(main(eva_iter=eva_iter, plot=True))
+        
+    print(0)
