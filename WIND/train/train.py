@@ -16,9 +16,9 @@ import math
 import numpy as np
 import json
 
-from data_loader import data_loader
-import models
-from utils.log_utils import init_log, dispose_log
+from WIND.data_loader import data_loader
+from WIND.models import *
+from WIND.utils.log_utils import init_log, dispose_log
 
 import wandb
 os.environ['WANDB_MODE'] = 'online'
@@ -42,7 +42,7 @@ def train(parameters=None, plot=True, zone='mock'):
     #
     parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
-    parser.add_argument('--H', default=100, help='length of history')
+    parser.add_argument('--H', default=200, help='length of history')
     #
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=1)
@@ -71,7 +71,7 @@ def train(parameters=None, plot=True, zone='mock'):
 
     # Model
     print('==> Building model..')
-    net = models.SDENet_wind(layer_depth=4, H=args.H)
+    net = SDENet_wind(layer_depth=4, H=args.H)
     net = net.to(device)
 
 
@@ -211,10 +211,9 @@ def train(parameters=None, plot=True, zone='mock'):
                 #*
                 #* Euler-Maruyama
                 x_in = inputs[:,:,-1]
-                x_out = x_in \
-                    + current_mu * deltat \
-                        + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in)
-                
+                x_out = x_in + (current_mu * deltat \
+                        + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in))
+                # print(x_out.mean)
                 # x_out = net(inputs, training_diffusion=False)
                 
                 loss_mse = mse(targets, x_out)

@@ -6,10 +6,12 @@ import torch.nn.init as init
 import math
 from pathlib import Path
 import json
-from utils.log_utils import init_log
+import logging
+
+from WIND.utils.log_utils import init_log
 
 __all__ = ['SDENet_wind']
-
+logger = logging.getLogger(__name__)
 
 # def init_params(net):
 #     '''Init layer parameters.'''
@@ -74,6 +76,7 @@ class SDENet_wind(nn.Module):
         self.deltat = 4./self.layer_depth
         # self.apply(init_params)
         self.sigma = 5
+        self.sde_form = self.set_sde_form('abm')
         
         if log_name is None:
             self.log_name = 'sde-net_model'
@@ -91,9 +94,7 @@ class SDENet_wind(nn.Module):
                 #*
                 #* STOCHASTIC DIFFERENTIAL EQUATION
                 #* (Euler-Maruyama)
-                out = out \
-                    + self.drift(t,out) * self.deltat \
-                        + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
+                out = self.sde_form(t, out, x, diffusion_term)
             final_out = self.fc_layers(out)
             mu = final_out[:,:,0]
             sigma = F.softplus(final_out[:,:,1]) + 1e-3
@@ -113,6 +114,29 @@ class SDENet_wind(nn.Module):
 
         return SDENet_wind(params=params, log_name=log_name)
 
+    def set_sde_form(self, form: str):
+        """
+        The corrent function defines the form of the SDE.
+        Currently 2 different SDEs are implemented (Geometric Brownian Motion) and Arithmentic.
+        Returns:
+
+        """
+        match form:
+            case 'abm':
+                sde_form = lambda t, out, x, diffusion_term: out \
+                    + self.drift(t, out) * self.deltat \
+                        + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
+            case 'gbm':
+                sde_form = lambda t, out, x, diffusion_term: out * torch.Tensor.exp(self.drift(t, out) * self.deltat \
+                                                       + diffusion_term * math.sqrt(
+                                                        self.deltat) * torch.randn_like(out).to(x))
+            case _:
+                logger.info('SDE form has been chosen by default')
+                sde_form = lambda t, out, x, diffusion_term: out \
+                                                             + self.drift(t, out) * self.deltat \
+                                                             + diffusion_term * math.sqrt(
+                    self.deltat) * torch.randn_like(out).to(x)
+        return sde_form
 
 def test():
     model = SDENet_wind(layer_depth=10, H=64)
@@ -121,6 +145,7 @@ def test():
  
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 
 if __name__ == '__main__':

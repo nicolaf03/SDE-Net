@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from data_loader import data_loader
+from WIND.data_loader import data_loader
 import numpy as np
 import torchvision.utils as vutils
 # import calculate_log as callog
-import models
+from WIND.models import *
 import math
 import os 
 import random
@@ -36,10 +36,10 @@ def main(eva_iter, plot):
     #
     parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
-    parser.add_argument('--H', default=100, help='length of history')
+    parser.add_argument('--H', default=200, help='length of history')
     #
     parser.add_argument('--out_dataset', required=False, help='out-of-dist dataset: cifar10 | svhn | imagenet | lsun')
-    parser.add_argument('--pre_trained_net', default='./WIND/trained_model/model_mock_1', help="path to pre trained_net")
+    parser.add_argument('--pre_trained_net', default='trained_model/model_mock_1', help="path to pre trained_net")
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--test_batch_size', type=int, default=1)
 
@@ -61,7 +61,7 @@ def main(eva_iter, plot):
 
 
     print('Load model')
-    model = models.SDENet_wind(layer_depth=4, H=args.H)
+    model = SDENet_wind(layer_depth=4, H=args.H)
 
     model.load_state_dict(torch.load(args.pre_trained_net))
     model = model.to(device)
