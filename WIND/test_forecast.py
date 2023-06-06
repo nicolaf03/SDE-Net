@@ -150,6 +150,7 @@ def main(eva_iter, plot):
             plt.plot(range(len(y_pred)), y_pred, label='predicted', c='red')
             plt.plot(range(len(y_true)), y_true, label='true', c='black')
             # plt.plot(range(len(y_pred2)), y_pred2, label='predicted 2', c='blue')
+            plt.legend()
             plt.show()
         
         return y_true, y_pred, err

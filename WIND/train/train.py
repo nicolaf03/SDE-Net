@@ -85,6 +85,7 @@ def train(parameters=None, plot=True, zone='mock'):
     def nll_loss(y, mean, sigma):
         loss = torch.mean(torch.log(sigma) + (y - mean)**2 / (sigma**2))
         return loss
+
     def mse(y_pred, y_true):
         loss = torch.mean((y_pred - y_true)**2)
         return loss
@@ -211,7 +212,7 @@ def train(parameters=None, plot=True, zone='mock'):
                 #*
                 #* Euler-Maruyama
                 x_in = inputs[:,:,-1]
-                x_out = x_in + (current_mu * deltat \
+                x_out = x_in * (1 + current_mu * deltat \
                         + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in))
                 # print(x_out.mean)
                 # x_out = net(inputs, training_diffusion=False)

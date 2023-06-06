@@ -76,7 +76,7 @@ class SDENet_wind(nn.Module):
         self.deltat = 4./self.layer_depth
         # self.apply(init_params)
         self.sigma = 5
-        self.sde_form = self.set_sde_form('abm')
+        self.sde_form = self.set_sde_form('gbm')
         
         if log_name is None:
             self.log_name = 'sde-net_model'
@@ -127,7 +127,7 @@ class SDENet_wind(nn.Module):
                     + self.drift(t, out) * self.deltat \
                         + diffusion_term * math.sqrt(self.deltat) * torch.randn_like(out).to(x)
             case 'gbm':
-                sde_form = lambda t, out, x, diffusion_term: out * torch.Tensor.exp(self.drift(t, out) * self.deltat \
+                sde_form = lambda t, out, x, diffusion_term: out * (1 + self.drift(t, out) * self.deltat \
                                                        + diffusion_term * math.sqrt(
                                                         self.deltat) * torch.randn_like(out).to(x))
             case _:
