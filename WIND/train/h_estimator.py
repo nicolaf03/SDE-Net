@@ -3,6 +3,7 @@ import torch
 import pathlib
 from hurst import compute_Hc
 import pandas as pd
+import numpy as np
 from WIND.data_loader import data_loader
 
 
@@ -35,6 +36,8 @@ def h_estimate_func(args):
     # train_loader, test_loader = data_loader.getDataSet(args.zone, args.H, args.h, args.batch_size, args.test_batch_size)
     file = pathlib.Path('../data/wind_mock_train.csv')
     df = pd.read_csv(file, index_col=0, header=0)
+
+    noise = get_noise(df.energy.values, 'abm')
     """
         The kind parameter of the compute_Hc function can have the following values:
         'change': a series is just random values (i.e. np.random.randn(...))
@@ -42,15 +45,26 @@ def h_estimate_func(args):
         'price': a series is a cumulative product of changes (i.e. np.cumprod(1+epsilon*np.random.randn(...))
         ==> therefore: kind 'random_walk' is for ABM, 'price' for GBM
     """
-    # h, _, _ = compute_Hc(train_loader.dataset.data, kind='price', simplified=False)
-    h, _, _ = compute_Hc(df.energy.values, kind='random_walk', simplified=True)
+    h, _, _ = compute_Hc(noise, kind='random_walk', simplified=True)
     return h
+
+
+def get_noise(prices: np.array, kind: str):
+    match kind:
+        case 'gbm':
+            r = np.diff(np.log(prices))
+        case 'abm':
+            r = np.diff(prices)
+        case _:
+            r = np.diff(prices)
+    return (r - r.mean()) / r.std()
 
 
 if __name__ == '__main__':
     args = get_args()
     h = h_estimate_func(args)
     print(h)
+
 
 
 
