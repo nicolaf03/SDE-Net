@@ -45,6 +45,9 @@ def h_estimate_func(args):
         'price': a series is a cumulative product of changes (i.e. np.cumprod(1+epsilon*np.random.randn(...))
         ==> therefore: kind 'random_walk' is for ABM, 'price' for GBM
     """
+    x = np.random.randn(1000)
+    # noise = np.cumsum(x) * 0.10 * np.sqrt(4/1000) # dX_t = 0 * dt + 0.1 * dW_t
+    # noise = np.cumprod(1 + x * 0.10 * np.sqrt(4 / 1000))  # dX_t / X_t = 0 * dt + 0.1 * dW_t
     h, _, _ = compute_Hc(noise, kind='random_walk', simplified=True)
     return h
 
