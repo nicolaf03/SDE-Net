@@ -1,4 +1,4 @@
-from WIND.custom_dataset import CustomTimeSeriesDataset
+from ..custom_dataset import CustomTimeSeriesDataset
 from torchvision import transforms
 from pathlib import Path
 import pandas as pd

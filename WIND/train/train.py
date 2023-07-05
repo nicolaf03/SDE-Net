@@ -13,6 +13,7 @@ import json
 
 from WIND.data_loader import data_loader
 from WIND.models import *
+from WIND.utils.log_utils import init_log, dispose_log
 
 import wandb
 os.environ['WANDB_MODE'] = 'online'
@@ -36,7 +37,8 @@ def train(parameters=None, plot=True, zone='mock'):
     #
     parser.add_argument('--zone', default='mock', help='zone')
     parser.add_argument('--h', default=1, help='time horizon forecasting')
-    parser.add_argument('--H', default=200, help='length of history')
+    parser.add_argument('--H', default=100, help='length of history')
+    parser.add_argument('--Hurst_idx', default=0.12, help='Hurst exponent')
     #
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=1)
@@ -65,8 +67,7 @@ def train(parameters=None, plot=True, zone='mock'):
 
     # Model
     print('==> Building model..')
-    net = SDENet_wind(layer_depth=4, H=args.H)
-    net = net.to(device)
+    net = SDENet_wind(layer_depth=4, H=args.H, Hurst_idx=0.12)
 
 
     real_label = 0
@@ -105,17 +106,6 @@ def train(parameters=None, plot=True, zone='mock'):
         momentum=0.9,
         weight_decay=5e-4
     )
-
-    # optimizer_F = optim.AdamW(
-    #     params=[{'params': net.downsampling_layers.parameters()}, {'params': net.drift.parameters()}, {'params': net.fc_layers.parameters()}],
-    #     lr=0.001
-    # )
-    # optimizer_G = optim.AdamW(
-    #     params=[{'params': net.diffusion.parameters()}],
-    #     lr=0.001
-    # )
-    # use a smaller sigma during training for training stability
-    # net.sigma = 20
 
     # training
     def train(epoch):
@@ -206,9 +196,15 @@ def train(parameters=None, plot=True, zone='mock'):
                 #*
                 #* Euler-Maruyama
                 x_in = inputs[:,:,-1]
-                x_out = x_in * (1 + current_mu * deltat \
-                        + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in))
-                # print(x_out.mean)
+                # Arithmetic Brownian Motion
+                x_out = x_in \
+                    + current_mu * deltat \
+                         + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in)
+                # Geometric Brownian Motion
+                # x_out = x_in \
+                #     * (1 +  current_mu * deltat \
+                #        + current_sigma * math.sqrt(deltat) * torch.randn_like(x_in))
+
                 # x_out = net(inputs, training_diffusion=False)
                 
                 loss_mse = mse(targets, x_out)

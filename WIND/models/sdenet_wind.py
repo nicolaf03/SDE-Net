@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import random
+import numpy as np
 import torch.nn.init as init
+import logging
 import math
 from pathlib import Path
 import json
@@ -12,6 +13,10 @@ from WIND.utils.log_utils import init_log
 
 __all__ = ['SDENet_wind']
 logger = logging.getLogger(__name__)
+from ..utils.log_utils import init_log
+from .fBM import hosking
+
+
 
 # def init_params(net):
 #     '''Init layer parameters.'''
@@ -63,7 +68,7 @@ class Diffusion(nn.Module):
     
 
 class SDENet_wind(nn.Module):
-    def __init__(self, layer_depth, H, zone=None, params=None, log_name=None):
+    def __init__(self, layer_depth, H, Hurst_idx, zone=None, params=None, log_name=None):
         super(SDENet_wind, self).__init__()
         self.layer_depth = layer_depth
         self.downsampling_layers = nn.Linear(H, 50)
@@ -76,7 +81,7 @@ class SDENet_wind(nn.Module):
         self.deltat = 4./self.layer_depth
         # self.apply(init_params)
         self.sigma = 5
-        self.sde_form = self.set_sde_form('gbm')
+        self.sde_solution = self.set_sde_sol('abm', T=H, N=H, H=Hurst_idx)
         
         if log_name is None:
             self.log_name = 'sde-net_model'
@@ -94,7 +99,7 @@ class SDENet_wind(nn.Module):
                 #*
                 #* STOCHASTIC DIFFERENTIAL EQUATION
                 #* (Euler-Maruyama)
-                out = self.sde_form(t, out, x, diffusion_term)
+                out = self.sde_solution(t, out, diffusion_term)
             final_out = self.fc_layers(out)
             mu = final_out[:,:,0]
             sigma = F.softplus(final_out[:,:,1]) + 1e-3
@@ -102,10 +107,31 @@ class SDENet_wind(nn.Module):
         else:
             t = 0
             final_out = self.diffusion(t, out.detach())
-            sigma = final_out[:,:,0]
+            sigma = final_out[:, :, 0]
             return sigma
-        
-    
+
+    def set_sde_sol(self, form: str, T, N, H):
+        """
+        The corrent function defines the form of the SDE.
+        Currently 2 different SDEs are implemented (Geometric Brownian Motion) and Arithmentic.
+        Returns:
+        """
+        fBM = hosking(T, N, H)
+        match form:
+            case 'abm':
+                sde_sol = lambda t, out, diffusion_term: out \
+                    + self.drift(t, out) * self.deltat \
+                        + diffusion_term * fBM[t]
+            case 'gbm':
+                sde_sol = lambda t, out, diffusion_term: out * (1 + self.drift(t, out) * self.deltat + diffusion_term * fBM[t])
+
+            case _:
+                logger.info('SDE form has been chosen by default')
+
+                sde_sol = lambda t, out, diffusion_term: out + self.drift(t, out) * self.deltat \
+                                                             + diffusion_term * fBM[t]
+        return sde_sol
+
     @staticmethod
     def load_params(folder, name, log_name=None):
         params_filename = 'params_' + name + '.json'
