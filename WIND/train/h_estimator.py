@@ -34,10 +34,11 @@ def get_args():
 
 def h_estimate_func(args):
     # train_loader, test_loader = data_loader.getDataSet(args.zone, args.H, args.h, args.batch_size, args.test_batch_size)
-    file = pathlib.Path('../data/wind_mock_train.csv')
-    df = pd.read_csv(file, index_col=0, header=0)
+    # file = pathlib.Path('../data/wind_mock_train.csv')
+    file = pathlib.Path('../data/logres_additive.csv')
+    df = pd.read_csv(file, index_col=0, header=0, sep=',')
 
-    noise = get_noise(df.energy.values, 'abm')
+    # noise = get_noise(df.trend.values, 'abm')
     """
         The kind parameter of the compute_Hc function can have the following values:
         'change': a series is just random values (i.e. np.random.randn(...))
@@ -45,10 +46,13 @@ def h_estimate_func(args):
         'price': a series is a cumulative product of changes (i.e. np.cumprod(1+epsilon*np.random.randn(...))
         ==> therefore: kind 'random_walk' is for ABM, 'price' for GBM
     """
-    x = np.random.randn(1000)
-    # noise = np.cumsum(x) * 0.10 * np.sqrt(4/1000) # dX_t = 0 * dt + 0.1 * dW_t
-    # noise = np.cumprod(1 + x * 0.10 * np.sqrt(4 / 1000))  # dX_t / X_t = 0 * dt + 0.1 * dW_t
-    h, _, _ = compute_Hc(noise, kind='random_walk', simplified=True)
+    # np.random.seed(42)
+    # x = np.random.randn(1000)
+    noise = df.resid.values
+
+    # noise = np.cumsum(x * 0.10 * np.sqrt(4/1000) + 0.01 * 4/1000)  # dX_t = 0 * dt + 0.1 * dW_t
+    # noise = np.cumprod(1 + x * 0.10 * np.sqrt(4 / 1000) + 0.01 * 4/1000)  # dX_t / X_t = 0 * dt + 0.1 * dW_t
+    h, _, _ = compute_Hc(noise, kind='change', min_window=20, max_window=365, simplified=True)
     return h
 
 
