@@ -27,13 +27,12 @@ def h_estimate_func():
 
 
 def get_noise(prices: np.array, kind: str):
-    match kind:
-        case 'gbm':
-            r = np.diff(np.log(prices))
-        case 'abm':
-            r = np.diff(prices)
-        case _:
-            r = np.diff(prices)
+    if kind == 'gbm':
+        r = np.diff(np.log(prices))
+    elif kind == 'abm':
+        r = np.diff(prices)
+    else:
+        r = np.diff(prices)
     return (r - r.mean()) / r.std()
 
 
