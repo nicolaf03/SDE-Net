@@ -3,11 +3,16 @@ import numpy as np
 import logging
 
 from pathlib import Path
+import os
 from h_estimator import compute_Hc
 from fractional_BM.fBM import FractionalBM
 
+from multiprocessing import Pool
+
 # module logger
 logger = logging.getLogger(__name__)
+
+curr_dir = Path(__file__).parent
 
 
 def h_estimate_func(noise, kind, min_window, max_window):
@@ -33,17 +38,19 @@ def generate_fbm_trajectories(h_index, n_sims, T:int ):
 
 if __name__ == '__main__':
     # INPUT
-    h_vec = [.1, .2, .3, .4, .5, .6, .7, .8, .9]
+    h_vec = [.2, .3, .4, .5, .6, .7, .8, .9]
     n_sims = 1000
     freq = 365
     t_n = freq * 5
     step = 30
     min_windows = np.arange(30, t_n - 365, step)
     max_windows = np.arange(100, t_n - 1, step)
-    # Initialize the dfs
-    df_h = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
-    df_rmse = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
-    for h in h_vec:
+    
+    def your_function(h):
+        print(f'Try with h = {h}')
+        
+        df_h = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
+        df_rmse = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
         noise = generate_fbm_trajectories(h, n_sims, t_n)
         logger.info(f'{n_sims} for fbm with H = {h} generated.')
         for min_w in min_windows:
@@ -57,9 +64,12 @@ if __name__ == '__main__':
                     logger.info(f'w_min: {min_w}\tw_max:{max_w}\tH: Estimated: {h_tmp}\t Expected: {h}')
                 df_h.loc[min_w, max_w] = h_estimated
                 df_rmse.loc[min_w, max_w] = np.sqrt(rmse / n_sims)
-        Path.mkdir(Path.cwd().joinpath("results"), exist_ok=True)
-        df_rmse.to_csv(f'results/H_{h}-rmse.csv', index=True)
-        df_h.to_csv(f'results/H_{h}-dist.csv', index=True)
+        Path.mkdir(curr_dir.joinpath('results'), exist_ok=True)
+        df_rmse.to_csv(f'{curr_dir}/results/H_{h}-rmse.csv', index=True)
+        df_h.to_csv(f'{curr_dir}/results/H_{h}-dist.csv', index=True)
+    
+    with Pool() as pool:
+        pool.map(your_function, iter(h_vec))
 
 
     """
