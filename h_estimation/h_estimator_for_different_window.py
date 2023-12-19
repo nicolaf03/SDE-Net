@@ -38,7 +38,7 @@ def generate_fbm_trajectories(h_index, n_sims, T:int ):
 
 if __name__ == '__main__':
     # INPUT
-    h_vec = [.2, .3, .4, .5, .6, .7, .8, .9]
+    h_vec = [.1, .2, .3, .4, .5, .6, .7, .8, .9]
     n_sims = 1000
     freq = 365
     t_n = freq * 5
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     min_windows = np.arange(30, t_n - 365, step)
     max_windows = np.arange(100, t_n - 1, step)
     
-    def your_function(h):
+    def compute_h(h):
         print(f'Try with h = {h}')
         
         df_h = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
@@ -68,8 +68,9 @@ if __name__ == '__main__':
         df_rmse.to_csv(f'{curr_dir}/results/H_{h}-rmse.csv', index=True)
         df_h.to_csv(f'{curr_dir}/results/H_{h}-dist.csv', index=True)
     
+    # MULTIPROCESSING
     with Pool() as pool:
-        pool.map(your_function, iter(h_vec))
+        pool.map(compute_h, iter(h_vec))
 
 
     """
