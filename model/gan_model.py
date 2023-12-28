@@ -16,11 +16,13 @@ import tqdm
 import wandb
 os.environ['WANDB_MODE'] = 'offline'
 
+import utils.math_utils as math_utils
 import utils.csv_utils as csv_utils
 from utils.log_utils import init_log
 
 from model.generator import Generator
 from model.discriminator import Discriminator
+from plot.plot_prediction import plot_hist, plot_samples
 
 curr_dir = Path(__file__).parent
 
@@ -28,7 +30,10 @@ curr_dir = Path(__file__).parent
 class GanModel:
     def __init__(self, zone=None, params=None, log_name=None):
         self.data = None
-        self.features = None
+        #self.features = None
+        self.ts = None
+        self.train_dataloader = None
+        self.test_dataloader = None
         self.trained_generator = None
         self.trained_discriminator = None
         self.train_params = None
@@ -81,7 +86,9 @@ class GanModel:
         if self.train_params is None:
             self.train_params = dict()
         self.train_params['training_data'] = f'res_{zone.upper()}.csv'
-        self.features = None
+        #self.features = None
+        self.ts = None
+        self.train_dataloader = None
     
         
     @staticmethod
@@ -93,11 +100,8 @@ class GanModel:
         return df
     
     
-    def _compute_features(self):
+    def _create_dataloader(self):
         data = self.data
-        #features = data.copy()
-        start_date = data.index.min()
-        end_date = data.index.max()
         t_size = self.custom_params['t_size']
         batch_size = self.custom_params['batch_size']
 
@@ -139,9 +143,9 @@ class GanModel:
         ys_coeffs = torchcde.linear_interpolation_coeffs(ys)  # as per neural CDEs.
         dataset = torch.utils.data.TensorDataset(ys_coeffs)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        features = (ts, dataloader)
         
-        return features
+        return ts, dataloader
+
     
     @staticmethod
     def _evaluate_loss(ts, batch_size, dataloader, generator, discriminator, device):
@@ -161,7 +165,8 @@ class GanModel:
     def _train(self, device):
         log = logging.getLogger(self.log_name)
         
-        ts, train_dataloader = self.features
+        ts = self.ts
+        train_dataloader = self.train_dataloader
         infinite_train_dataloader = (elem for it in iter(lambda: train_dataloader, None) for elem in it)
 
         # unwrap gan hyperparameters
@@ -274,22 +279,17 @@ class GanModel:
         return generator, discriminator
     
     
-    def train(self, device, start_train, end_train, test_month, valid_month=None, plot=False, external_features=None, drop_features=None):
+    def train(self, device, start_train, end_train, test_month, valid_month=None, plot=False):
         log = logging.getLogger(self.log_name)
         if self.data is None:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
         
-        if self.features is None:
-            self.features = self._compute_features()
+        if self.ts is None or self.train_dataloader:
+            self.ts, self.train_dataloader = self._create_dataloader()
+            
+        if self.ts is None or self.train_dataloader is None:
+            self.ts, self.train_dataloader = self._create_dataloader()
         
-        # if 'best_features' in self.custom_params:
-        #     features = self.custom_params['best_features']
-        # else:
-        #     features = self.custom_params['features']
-        #
-        # if drop_features is not None:
-        #     features = [f for f in features if f not in drop_features]
-
         # test_month_date = datetime.strptime(test_month, '%Y-%m')
         if valid_month is None:
             raise ValueError('validation month is \'None\' !')
@@ -326,6 +326,41 @@ class GanModel:
         #     lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train metric {self.custom_params['zone']}")
         #     pyplot.vlines(x = self.trained_model.best_iteration, ymin=0, ymax=0.3, colors="red")
 
+
+    def predict(self, start_test, end_test, plot):
+
+        if self.trained_generator is None or self.trained_discriminator is None:
+            raise ValueError('you must train or load the model before!')
+        if self.data is None:
+            raise ValueError('you must call \'load_training_data\' before \'train\' !')
+
+        log = logging.getLogger(self.log_name)
+        if self.ts is None:
+            self.ts, self.train_dataloader = self._create_dataloader()
+            
+        ts = self.ts
+        test_dataloader = self.train_dataloader
+        generator = self.trained_generator
+        
+        # Get samples
+        real_samples, = next(iter(test_dataloader))
+        assert self.custom_params['num_plot_samples'] <= real_samples.size(0)
+        real_samples = torchcde.LinearInterpolation(real_samples).evaluate(ts)
+        real_samples = real_samples[..., 1]
+
+        with torch.no_grad():
+            generated_samples = generator(ts, real_samples.size(0)).cpu()
+        generated_samples = torchcde.LinearInterpolation(generated_samples).evaluate(ts)
+        generated_samples = generated_samples[..., 1]
+        
+        if plot:
+            plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
+            plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
+        
+        y_test = None
+        mean_err = None
+        return generated_samples, y_test, mean_err
+    
 
     # @staticmethod
     # def get_params(name, folder='parameters'):
