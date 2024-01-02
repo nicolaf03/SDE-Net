@@ -18,8 +18,8 @@
       "num_layers": 1,
       "generator_lr": 2e-4,
       "discriminator_lr": 1e-3,
-      "init_mult1": 3,
-      "init_mult2": 0.5,
+      "init_mult1": 1e-10,
+      "init_mult2": 1e-10,
       "weight_decay": 0.01
     }
   }

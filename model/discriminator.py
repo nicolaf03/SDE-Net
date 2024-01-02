@@ -22,8 +22,12 @@ class DiscriminatorFunc(torch.nn.Module):
 
 
 class Discriminator(torch.nn.Module):
-    def __init__(self, data_size, hidden_size, mlp_size, num_layers):
+    def __init__(self, params):
         super().__init__()
+        data_size = 1
+        hidden_size = params['hidden_size']
+        mlp_size = params['mlp_size']
+        num_layers = params['num_layers']
 
         self._initial = MLP(1 + data_size, hidden_size, mlp_size, num_layers, tanh=False)
         self._func = DiscriminatorFunc(data_size, hidden_size, mlp_size, num_layers)

@@ -58,6 +58,7 @@ def train(device, start_train, end_train, test_month, parameters, valid_month=No
 
 if __name__ == "__main__":
     
+    # todo: si puo' spostare device dentro alla funzione train di GanModel
     is_cuda = torch.cuda.is_available()
     device = 'cuda:0' if is_cuda else 'cpu'
     if not is_cuda:
@@ -76,6 +77,8 @@ if __name__ == "__main__":
         zone=zone,
         add_folder=None
     )
+    
+    
     
     # parameters = 'SUD_v1'
     # add_folder = None

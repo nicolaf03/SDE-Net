@@ -31,8 +31,15 @@ class GeneratorFunc(torch.nn.Module):
 
 
 class Generator(torch.nn.Module):
-    def __init__(self, data_size, initial_noise_size, noise_size, hidden_size, mlp_size, num_layers):
+    def __init__(self, params):
         super().__init__()
+        data_size = 1
+        initial_noise_size = params['initial_noise_size']
+        noise_size = params['noise_size']
+        hidden_size = params['hidden_size']
+        mlp_size = params['mlp_size']
+        num_layers = params['num_layers']
+        
         self._initial_noise_size = initial_noise_size
         self._hidden_size = hidden_size
 

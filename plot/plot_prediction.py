@@ -19,7 +19,7 @@ def plot_hist(real_samples, generated_samples, plot_locs, zone):
         plt.title(f'Marginal distribution at time {time}.')
         plt.tight_layout()
         #plt.savefig(f'./torchsde/images/{zone}/marginal_distribution_{prop}_{zone}.png', dpi=200, format='png')
-        plt.show()
+        #plt.show()
 
 def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone):
     real_samples = real_samples[:num_plot_samples]
@@ -40,4 +40,4 @@ def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone):
     plt.title(f"{num_plot_samples} samples from both real and generated distributions ({zone}).")
     plt.tight_layout()
     #plt.savefig(f'./torchsde/images/{zone}/samples_real_vs_generated_{zone}.png', dpi=200, format='png')
-    plt.show()
+    #plt.show()

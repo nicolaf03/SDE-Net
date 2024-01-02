@@ -8,7 +8,7 @@ import torchsde
 import json
 import logging
 from datetime import datetime, date
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 import os
 import time
 import tqdm
@@ -59,6 +59,7 @@ class GanModel:
             self.custom_params = {
                 'zone': zone,
                 'steps': 10000,
+                'swa_step_start': 5000,
                 't_size': 64,
                 'batch_size': 1024,
                 'steps_per_print': 10,
@@ -75,8 +76,7 @@ class GanModel:
                 'discriminator_lr': 1e-3,
                 'init_mult1': 3,
                 'init_mult2': 0.5,
-                'weight_decay': 0.01,
-                'swa_step_start': 5000
+                'weight_decay': 0.01
             }
             
     
@@ -171,11 +171,6 @@ class GanModel:
 
         # unwrap gan hyperparameters
         # todo: passare alle classi direttamente il dizionario
-        initial_noise_size = self.gan_params['initial_noise_size']
-        noise_size = self.gan_params['noise_size']
-        hidden_size = self.gan_params['hidden_size']
-        mlp_size = self.gan_params['mlp_size']
-        num_layers = self.gan_params['num_layers']
         init_mult1 = self.gan_params['init_mult1']
         init_mult2 = self.gan_params['init_mult2']
         generator_lr = self.gan_params['generator_lr']
@@ -185,8 +180,8 @@ class GanModel:
         batch_size = self.custom_params['batch_size']
         
         # Models
-        generator = Generator(1, initial_noise_size, noise_size, hidden_size, mlp_size, num_layers).to(device)
-        discriminator = Discriminator(1, hidden_size, mlp_size, num_layers).to(device)
+        generator = Generator(self.gan_params).to(device)
+        discriminator = Discriminator(self.gan_params).to(device)
         
         # Weight averaging really helps with GAN training.
         averaged_generator = swa_utils.AveragedModel(generator)
@@ -284,9 +279,6 @@ class GanModel:
         if self.data is None:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
         
-        if self.ts is None or self.train_dataloader:
-            self.ts, self.train_dataloader = self._create_dataloader()
-            
         if self.ts is None or self.train_dataloader is None:
             self.ts, self.train_dataloader = self._create_dataloader()
         
@@ -327,6 +319,131 @@ class GanModel:
         #     pyplot.vlines(x = self.trained_model.best_iteration, ymin=0, ymax=0.3, colors="red")
 
 
+    # def cross_validation(self, start_train, start_test, end_test, valid_strategy=None, verbose=False,
+    #                      use_tension_coeff=True, weights_strategy=None, ignore_d7=False):
+    #     if self.data is None:
+    #         raise ValueError('you must call \'load_training_data\' before \'train\' !')
+
+    #     log = logging.getLogger(self.log_name)
+    #     if self.ts is None or self.train_dataloader is None:
+    #         self.ts, self.train_dataloader = self._create_dataloader()
+
+    #     groups_year = set(self.features.index.year)
+    #     groups_month = set(self.features.index.month)
+    #     months_list = list(itertools.product(groups_year, groups_month))
+    #     ignore_d7_index = pd.Index([])
+    #     models = []
+    #     predictions = pd.Series()
+    #     gt = pd.Series()
+    #     festive_days = pd.Series()
+    #     bank_holidays = pd.Series()
+    #     start_train_month = (int(start_train.split('-')[0]), int(start_train.split('-')[1]))
+    #     start_test_month = (int(start_test.split('-')[0]), int(start_test.split('-')[1]))
+    #     end_test_month = (int(end_test.split('-')[0]), int(end_test.split('-')[1]))
+    #     start = False
+    #     for idx, curr_month in enumerate(months_list):
+    #         if curr_month == start_test_month:
+    #             start = True
+    #         if end_test_month == months_list[idx - 1]:
+    #             break
+    #         if start:
+    #             end_train_month = months_list[idx - 2]
+    #             test_month = curr_month
+    #             # validate on the same test_month, one year before
+    #             if valid_strategy is None:
+    #                 # default strategy
+    #                 if test_month[1] in self.custom_params['validate_prev_year']:
+    #                     month_valid_strategy = 'prev_year'
+    #                 else:
+    #                     month_valid_strategy = 'prev_prev_month'
+    #             else:
+    #                 month_valid_strategy = valid_strategy
+
+    #             if month_valid_strategy == 'prev_year' and f'{test_month[0] - 1}-{test_month[1]}' in self.features.index:
+    #                 valid_month = (test_month[0] - 1, test_month[1])
+    #             else:
+    #                 valid_month = end_train_month
+
+    #             if verbose:
+    #                 log.info(f'Training on Period: {start_train_month}-{end_train_month}, '
+    #                          f'Validate on Period: {valid_month}, '
+    #                          f'Test on Period: {test_month}')
+
+    #             df_train = self.features[start_train:f'{end_train_month[0]}-{end_train_month[1]}']
+    #             df_valid = self.features[f'{valid_month[0]}-{valid_month[1]}']
+    #             df_test = self.features[f'{test_month[0]}-{test_month[1]}']
+
+    #             # save festive days target and remove them from df_train
+    #             df_train = self._save_festive_days_target(df_train)
+    #             # df_train = self._save_bank_holidays_target(df_train)
+
+    #             # remove valid_set from train_set
+    #             index_diff = df_train.index.difference(df_valid.index)
+    #             df_train = df_train.loc[index_diff]
+
+    #             y_train = df_train.target
+    #             x_train = df_train.loc[:, feat_names]
+    #             y_valid = df_valid.target
+    #             x_valid = df_valid.loc[:, feat_names]
+    #             y_test = df_test.target
+    #             x_test = df_test.loc[:, feat_names]
+
+    #             if weights_strategy is None:
+    #                 weights_strategy = self.custom_params['weights_strategy']
+    #             train_weights = self._apply_weights_strategy(weights_strategy, df_train.index, test_month[1])
+
+    #             if ignore_d7:
+    #                 if verbose:
+    #                     log.info('train without d7')
+    #                 model = self._train_without_d7(features_without_d7, cat_feat_without_d7, df_train,
+    #                                                           df_valid, train_weights)
+    #                 test_prediction = pd.Series(model.predict(x_test[features_without_d7]), index=df_test.index)
+    #             else:
+    #                 model, result = self._train(
+    #                     x_train, y_train, x_valid, y_valid, feat_names, cat_feat,
+    #                     early_stopping_rounds=self.custom_params['early_stopping_rounds'],
+    #                     num_iterations=self.custom_params['max_iterations'],
+    #                     train_weights=train_weights)
+    #                 test_prediction = pd.Series(model.predict(x_test), index=df_test.index)
+
+    #                 ignore_d7_ix = self._ignore_d7_index(df_test)
+    #                 ignore_d7_index = ignore_d7_index.union(ignore_d7_ix)
+
+    #                 if len(ignore_d7_ix) > 0:
+    #                     if verbose:
+    #                         log.info('train without d7')
+    #                     model_without_d7 = self._train_without_d7(features_without_d7, cat_feat_without_d7, df_train, df_valid, train_weights)
+    #                     test_prediction.loc[ignore_d7_ix] = pd.Series(model_without_d7.predict(
+    #                         df_test.loc[ignore_d7_ix, features_without_d7]), index=ignore_d7_ix)
+
+    #             test_prediction, festive_day_no_weekend = self._set_festive_days_target(df_test, test_prediction)
+    #             # test_prediction, bank_holidays_ = self._set_bank_holidays_target(df_test, test_prediction)
+    #             test_prediction, bank_holidays_ = self._apply_bank_holidays_strategy(df_test, test_prediction)
+    #             bank_holidays = bank_holidays.append(bank_holidays_)
+    #             # un-normalize
+    #             y_test = (y_test - 1.0) / 1000 * df_test['power']
+    #             test_prediction = (test_prediction - 1.0) / 1000 * df_test['power']
+    #             # y_test = (y_test - 1.0) * df_test['active']
+    #             # test_prediction = (test_prediction - 1.0) * df_test['active']
+
+    #             # apply tension coeff
+    #             if use_tension_coeff:
+    #                 tension_coeff = self.compute_tension_coeff()
+    #                 if tension_coeff is not None:
+    #                     test_prediction *= tension_coeff
+    #                     y_test *= tension_coeff
+    #                 else:
+    #                     log.error('missing tension level in test data!')
+
+    #             predictions = predictions.append(test_prediction)
+    #             gt = gt.append(y_test)
+    #             festive_days = festive_days.append(festive_day_no_weekend)
+
+    #             models.append(model)
+
+    #     return models, predictions, gt, festive_days, bank_holidays, ignore_d7_index
+
+
     def predict(self, start_test, end_test, plot):
 
         if self.trained_generator is None or self.trained_discriminator is None:
@@ -354,20 +471,21 @@ class GanModel:
         generated_samples = generated_samples[..., 1]
         
         if plot:
-            plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
+            #plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
             plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
+            plt.show()
         
         y_test = None
         mean_err = None
         return generated_samples, y_test, mean_err
     
 
-    # @staticmethod
-    # def get_params(name, folder='parameters'):
-    #     params_filename = 'params_' + name + '.json'
-    #     with open(Path(folder) / params_filename) as json_file:
-    #         params = json.load(json_file)
-    #     return params
+    @staticmethod
+    def get_params(name, folder='parameters'):
+        params_filename = 'params_' + name + '.json'
+        with open(Path(folder) / params_filename) as json_file:
+            params = json.load(json_file)
+        return params
     
 
     @staticmethod
