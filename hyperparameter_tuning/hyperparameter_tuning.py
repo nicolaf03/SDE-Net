@@ -11,9 +11,11 @@
 from model.gan_model import GanModel, Generator, Discriminator
 from utils import csv_utils
 
-from ray import tune
+from ray import train, tune
 from ray.tune.tuner import Tuner
-from ray.train import RunConfig
+#from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune.search.hyperopt import HyperOptSearch
+from ray.tune.schedulers import ASHAScheduler
 
 import tqdm
 import os
@@ -155,17 +157,33 @@ class MyTrainableClass(tune.Trainable):
         self.discriminator.load_state_dict(self.averaged_discriminator.module.state_dict())
         
         # Return metrics
-        return {"wasserstein_1d": loss}
+        return {"wasserstein_1d": loss.item()}
 
 
     def save_checkpoint(self, checkpoint_dir):
-        checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
-        torch.save(self.model.state_dict(), checkpoint_path)
-        return checkpoint_path
+        checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pt")
+        checkpoint = {
+            "generator_state_dict": self.generator.state_dict(),
+            "discriminator_state_dict": self.discriminator.state_dict(),
+            "generator_optimizer_state_dict": self.generator_optimiser.state_dict(),
+            "discriminator_optimizer_state_dict": self.discriminator_optimiser.state_dict()
+        }
+        torch.save(checkpoint, checkpoint_path)
+        return checkpoint
 
 
-    def load_checkpoint(self, checkpoint_path):
-        self.model.load_state_dict(torch.load(checkpoint_path))
+    # def load_checkpoint(self, checkpoint_path):
+    #     checkpoint = torch.load(checkpoint_path)
+    #     self.generator.load_state_dict(checkpoint['generator_state_dict'])
+    #     self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
+    #     self.generator_optimiser.load_state_dict(checkpoint['generator_optimizer_state_dict'])
+    #     self.discriminator_optimiser.load_state_dict(checkpoint['discriminator_optimizer_state_dict'])
+        
+    def load_checkpoint(self, checkpoint):
+        self.generator.load_state_dict(checkpoint['generator_state_dict'])
+        self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
+        self.generator_optimiser.load_state_dict(checkpoint['generator_optimizer_state_dict'])
+        self.discriminator_optimiser.load_state_dict(checkpoint['discriminator_optimizer_state_dict'])
 
 
 
@@ -178,38 +196,55 @@ if __name__ == '__main__':
                 "name": f"{zone}_model_v1",
                 "zone": zone,
                 "t_size": 64,
-                "batch_size": tune.choice([512, 1024]),
+                "batch_size": tune.choice([32, 64, 128]),
                 "steps": 10,
                 "swa_step_start": 5,
                 "steps_per_print": 5,
             },
             "gan": {
-                "initial_noise_size": 5,
-                "noise_size": 3,
-                "hidden_size": 16,
-                "mlp_size": 16,
+                "initial_noise_size": tune.qrandint(5, 10),
+                "noise_size": tune.qrandint(3, 10),
+                "hidden_size": tune.qrandint(16, 32),
+                "mlp_size": tune.qrandint(16, 32),
                 "num_layers": 1,
-                "generator_lr": tune.choice([1e-3, 1e-2]),#tune.loguniform(1e-5, 1e-2),
-                "discriminator_lr": 1e-2,#tune.loguniform(1e-4, 1e-1),
-                "init_mult1": 1,
-                "init_mult2": 1,
+                "generator_lr": tune.qloguniform(1e-5, 1e-2),
+                "discriminator_lr": tune.loguniform(1e-4, 1e-1),
+                "init_mult1": tune.loguniform(1e-2, 1),
+                "init_mult2": tune.loguniform(1e-2, 1),
                 "weight_decay": 0.01
             }
     }
     
-    # Configure Tune
+    # TuneConfig
     tune_config = tune.TuneConfig(
-        search_alg=tune.search.HyperOptSearch(),  # Bayesian optimization
-        scheduler=tune.schedulers.ASHAScheduler(),  # Early stopping
-        num_samples=1,  # Number of different hyperparameter combinations
+        metric='wasserstein_1d',
+        mode='min',
+        #search_alg=BayesOptSearch(metric="wasserstein_1d", mode="min"),  # Bayesian optimization
+        search_alg=HyperOptSearch(metric="wasserstein_1d", mode="min"),
+        scheduler=ASHAScheduler(),  # Early stopping
+        num_samples=5,  # Number of different hyperparameter combinations
         #max_concurrent_trials=5,  # Maximum concurrent trials
     )
     
+    # RunConfig
+    run_config = train.RunConfig(
+        name='hyperparameter_tuning_SUD',
+        local_dir='/Users/nicolafraccarolo/Documents/GitHub/SDE-Net/hyperparameter_tuning/ray_results',
+        stop={
+            "training_iteration": 10,
+            #"time_total_s": 10
+        }
+    )
+    
+    # Trainable
+    trainable = tune.with_resources(MyTrainableClass, resources={"cpu": 2})
+    
     # Create a Tuner and run it
     tuner = Tuner(
-        MyTrainableClass,
+        trainable,
         param_space=params,
-        tune_config=tune_config
+        tune_config=tune_config,
+        run_config=run_config
     )
     results = tuner.fit()
     
