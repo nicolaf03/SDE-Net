@@ -1,13 +1,14 @@
+
 import pandas as pd
 import numpy as np
 import logging
+import multiprocess as mp # Refactoring due to https://stackoverflow.com/questions/41385708/multiprocessing-example-giving-attributeerror
 
 from pathlib import Path
-import os
 from h_estimator import compute_Hc
 from fractional_BM.fBM import FractionalBM
 
-from multiprocessing import Pool
+
 
 # module logger
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ def h_estimate_func(noise, kind, min_window, max_window):
         'price': a series is a cumulative product of changes (i.e. np.cumprod(1+epsilon*np.random.randn(...))
         ==> therefore: kind 'random_walk' is for ABM, 'price' for GBM
     """
-    h, _, _ = compute_Hc(noise, kind=kind, min_window=min_window, max_window=max_window, simplified=False)
-    return h
+    h, c, data = compute_Hc(noise, kind=kind, min_window=min_window, max_window=max_window, simplified=False)
+    return h, c, data
 
 
 def generate_fbm_trajectories(h_index, n_sims, T:int ):
@@ -35,42 +36,52 @@ def generate_fbm_trajectories(h_index, n_sims, T:int ):
     noise = np.squeeze(sims_df.values)
     return noise
 
-
 if __name__ == '__main__':
     # INPUT
     h_vec = [.1, .2, .3, .4, .5, .6, .7, .8, .9]
-    n_sims = 1000
-    freq = 365
-    t_n = freq * 5
-    step = 30
-    min_windows = np.arange(30, t_n - 365, step)
-    max_windows = np.arange(100, t_n - 1, step)
-    
+
     def compute_h(h):
+        n_sims = 1000
+        freq = 365
+        t_n = freq * 5
+        step = 30
+        min_windows = np.arange(30, t_n - 365, step)
+        max_windows = np.arange(100, t_n - 1, step)
+
         print(f'Try with h = {h}')
-        
+
         df_h = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
         df_rmse = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
+        df_range_win = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
         noise = generate_fbm_trajectories(h, n_sims, t_n)
         logger.info(f'{n_sims} for fbm with H = {h} generated.')
         for min_w in min_windows:
             for max_w in max_windows:
-                h_estimated = []
-                rmse = 0
-                for n in range(0, n_sims):
-                    h_tmp = h_estimate_func(noise[n, :], 'price', min_window=min_w, max_window=max_w)
-                    h_estimated.append(h_tmp)
-                    rmse += (h_tmp - h) ** 2
-                    logger.info(f'w_min: {min_w}\tw_max:{max_w}\tH: Estimated: {h_tmp}\t Expected: {h}')
-                df_h.loc[min_w, max_w] = h_estimated
-                df_rmse.loc[min_w, max_w] = np.sqrt(rmse / n_sims)
+                if min_w < max_w:
+                    h_estimated = []
+                    se = 0
+                    for n in range(0, n_sims):
+                        h_tmp, c_tmp, data_tmp = h_estimate_func(noise[n, :], 'price', min_window=min_w, max_window=max_w)
+                        h_estimated.append(h_tmp)
+                        se += (h_tmp - h) ** 2
+                        logger.info(f'w_min: {min_w}\tw_max:{max_w}\tH: Estimated: {h_tmp}\t Expected: {h}')
+                    df_h.loc[min_w, max_w] = h_estimated
+                    df_range_win.loc[min_w, max_w] = data_tmp[0]
+                    df_rmse.loc[min_w, max_w] = np.sqrt(se / n_sims)
+                else:
+                    pass
         Path.mkdir(curr_dir.joinpath('results'), exist_ok=True)
         df_rmse.to_csv(f'{curr_dir}/results/H_{h}-rmse.csv', index=True)
+        df_range_win.to_csv(f'{curr_dir}/results/H_{h}-range.csv', index=True)
         df_h.to_csv(f'{curr_dir}/results/H_{h}-dist.csv', index=True)
-    
+    # compute_h(0.5)
     # MULTIPROCESSING
-    with Pool() as pool:
+    with mp.Pool() as pool:
         pool.map(compute_h, iter(h_vec))
+
+
+
+
 
 
     """
