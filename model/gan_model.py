@@ -48,10 +48,6 @@ class GanModel:
         if params is not None:
             self.custom_params = params['custom']
             self.gan_params = params['gan']
-            if 'validate_prev_year' not in self.custom_params:
-                self.custom_params['validate_prev_year'] = []
-            if 'weights_strategy' not in self.custom_params:
-                self.custom_params['weights_strategy'] = {}
         else:
             if zone is None:
                 raise ValueError('you should set the params or the zone!')
@@ -155,7 +151,7 @@ class GanModel:
             for real_samples, in dataloader:
                 generated_samples = generator(ts, batch_size).to(device)
                 generated_score = discriminator(generated_samples)
-                real_score = discriminator(real_samples).to(device)
+                real_score = discriminator(real_samples.to(device))
                 loss = generated_score - real_score
                 total_samples += batch_size
                 total_loss += loss.item() * batch_size
@@ -165,7 +161,7 @@ class GanModel:
     def _train(self, device):
         log = logging.getLogger(self.log_name)
         
-        ts = self.ts
+        ts = self.ts.to(device)
         train_dataloader = self.train_dataloader
         infinite_train_dataloader = (elem for it in iter(lambda: train_dataloader, None) for elem in it)
 
@@ -444,8 +440,7 @@ class GanModel:
     #     return models, predictions, gt, festive_days, bank_holidays, ignore_d7_index
 
 
-    def predict(self, start_test, end_test, plot):
-
+    def predict(self, plot):
         if self.trained_generator is None or self.trained_discriminator is None:
             raise ValueError('you must train or load the model before!')
         if self.data is None:
@@ -466,7 +461,7 @@ class GanModel:
         real_samples = real_samples[..., 1]
 
         with torch.no_grad():
-            generated_samples = generator(ts, real_samples.size(0)).cpu()
+            generated_samples = generator(ts, real_samples.size(0))
         generated_samples = torchcde.LinearInterpolation(generated_samples).evaluate(ts)
         generated_samples = generated_samples[..., 1]
         
@@ -519,8 +514,8 @@ class GanModel:
 
         [generator_filename, discriminator_filename, train_params_filename] = self.filenames(name)
 
-        torch.save(self.trained_generator.state_dict(),str((Path(folder) / generator_filename).resolve()))
-        torch.save(self.trained_discriminator.state_dict(),str((Path(folder) / discriminator_filename).resolve()))
+        torch.save(self.trained_generator.state_dict(), str((Path(folder) / generator_filename).resolve()))
+        torch.save(self.trained_discriminator.state_dict(), str((Path(folder) / discriminator_filename).resolve()))
 
         # save train params
         self.train_params['model_name'] = name
@@ -530,6 +525,30 @@ class GanModel:
             json.dump(self.train_params, outfile)
 
         return [generator_filename, discriminator_filename, train_params_filename]
+    
+    
+    def load_model(self, folder, name, device):
+        generator_filename, discriminator_filename, train_params_filename = self.filenames(name)
+
+        if self.custom_params is None or self.gan_params is None:
+            raise ValueError('you must call \'load_params\'!')
+        self.trained_generator = Generator(self.gan_params)
+        self.trained_discriminator = Discriminator(self.gan_params)
+        
+        self.trained_generator.load_state_dict(
+            torch.load(str((Path(folder) / generator_filename).resolve()),
+                       map_location=torch.device(device)
+            )
+        )
+        self.trained_discriminator.load_state_dict(
+            torch.load(str((Path(folder) / discriminator_filename).resolve()),
+                       map_location=torch.device(device)
+            )
+        )
+
+        # load train params
+        with open(Path(folder) / train_params_filename) as json_file:
+            self.train_params = json.load(json_file)
     
 
 
