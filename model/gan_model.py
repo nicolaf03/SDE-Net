@@ -96,8 +96,13 @@ class GanModel:
         return df
     
     
-    def _create_dataloader(self):
+    def _create_dataloader(self, start=None, end=None):
         data = self.data
+        if start is not None:
+            data = data[start:]
+        if end is not None:
+            data = data[:end]
+            
         t_size = self.custom_params['t_size']
         batch_size = self.custom_params['batch_size']
 
@@ -108,6 +113,57 @@ class GanModel:
         for i in range(len(data)-t_size):
             sub_array = value_array[i:i+t_size]
             x = torch.from_numpy(np.expand_dims(sub_array,0))
+            values.append(x)
+        ys = torch.stack(values).transpose(1,2)
+        
+        dataset_size = ys.shape[0]
+        
+        ###################
+        # Typically important to normalise data. Note that the data is normalised with respect to the statistics of the
+        # initial data, _not_ the whole time series. This seems to help the learning process, presumably because if the
+        # initial condition is wrong then it's pretty hard to learn the rest of the SDE correctly.
+        ###################
+        y0_flat = ys[0].view(-1)
+        y0_not_nan = y0_flat.masked_select(~torch.isnan(y0_flat)) #? unnecessary
+        ys = (ys - y0_not_nan.mean()) / y0_not_nan.std()
+        
+        # todo: do it without loop
+        # make all paths start from 0
+        for i in range(ys.size()[0]):
+            ys[i] = ys[i] - ys[:,0,:][i]
+            
+        ###################
+        # Time must be included as a channel for the discriminator.
+        ###################
+        ys = torch.cat([ts.unsqueeze(0).unsqueeze(-1).expand(dataset_size, t_size, 1), ys], dim=2)
+        
+        ###################
+        # Package up
+        ###################
+        # data_size = ys.size(-1) - 1  # How many channels the data has (not including time, hence the minus one).
+        ys_coeffs = torchcde.linear_interpolation_coeffs(ys)  # as per neural CDEs.
+        dataset = torch.utils.data.TensorDataset(ys_coeffs)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+        return ts, dataloader
+    
+    
+    def _create_test_dataloader(self, start=None, end=None):
+        data = self.data
+        if start is not None:
+            data = data[start:]
+        if end is not None:
+            data = data[:end]
+            
+        t_size = self.custom_params['t_size']
+        batch_size = self.custom_params['batch_size']
+
+        ts = torch.linspace(0, t_size - 1, t_size)
+        
+        value_array = np.array(data.iloc[:,1], dtype='float32')
+        values = []
+        for i in range(self.custom_params['num_plot_samples']):
+            x = torch.from_numpy(np.expand_dims(value_array,0))
             values.append(x)
         ys = torch.stack(values).transpose(1,2)
         
@@ -475,6 +531,42 @@ class GanModel:
         y_test = None
         mean_err = None
         return generated_samples, y_test, mean_err
+    
+    
+    def predict2(self, start_test, end_test, device, plot):
+
+        if self.trained_generator is None or self.trained_discriminator is None:
+            raise ValueError('you must train or load the model before!')
+        if self.data is None:
+            raise ValueError('you must call \'load_training_data\' before \'train\' !')
+
+        log = logging.getLogger(self.log_name)
+        #self.ts, self.train_dataloader = self._create_dataloader(end=start_test)
+        self.ts, test_dataloader = self._create_test_dataloader(start=start_test, end=end_test)
+        ts = self.ts.to(device)
+        
+        generator = self.trained_generator
+
+        # Get samples
+        real_samples, = next(iter(test_dataloader))
+        real_samples = real_samples.to(device)
+        assert self.custom_params['num_plot_samples'] <= real_samples.size(0)
+        real_samples = torchcde.LinearInterpolation(real_samples).evaluate(ts)
+        real_samples = real_samples[..., 1]
+
+        with torch.no_grad():
+            generated_samples = generator(ts, real_samples.size(0)).to(device)
+        generated_samples = torchcde.LinearInterpolation(generated_samples).evaluate(ts)
+        generated_samples = generated_samples[..., 1]
+        
+        if plot:
+            #plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
+            plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
+            plt.show()
+        
+        y_test = None
+        mean_err = None
+        return generated_samples, real_samples
     
 
     @staticmethod

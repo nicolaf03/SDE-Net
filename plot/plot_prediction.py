@@ -40,5 +40,5 @@ def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone):
     plt.legend()
     plt.title(f"{num_plot_samples} samples from both real and generated distributions ({zone}).")
     plt.tight_layout()
-    plt.savefig(f'images/samples_real_vs_generated_{zone}.png', dpi=200, format='png')
-    #plt.show() 
+    #plt.savefig(f'images/samples_real_vs_generated_{zone}.png', dpi=200, format='png')
+    plt.show() 
