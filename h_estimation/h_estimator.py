@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-def h_estimate_func():
+def h_estimate_func(series):
     """
         The kind parameter of the compute_Hc function can have the following values:
         'change': a series is just random values (i.e. np.random.randn(...))
@@ -16,13 +16,10 @@ def h_estimate_func():
     # df = pd.read_csv(file, index_col=0, header=0, sep=',')
     # noise = df.resid.values
 
-    np.random.seed(42)
-    noise = np.random.randn(1000)
-
     # Alternative versions tested.
     # noise = np.cumsum(x * 0.10 * np.sqrt(4/1000) + 0.01 * 4/1000)  # dX_t = 0 * dt + 0.1 * dW_t
     # noise = np.cumprod(1 + x * 0.10 * np.sqrt(4 / 1000) + 0.01 * 4/1000)  # dX_t / X_t = 0 * dt + 0.1 * dW_t
-    h, _, _ = compute_Hc(noise, kind='change', min_window=20, max_window=365, simplified=True)
+    h, _, _ = compute_Hc(series, kind='change', min_window=10, max_window=len(series), simplified=True)
     return h
 
 
@@ -37,8 +34,18 @@ def get_noise(prices: np.array, kind: str):
 
 
 if __name__ == '__main__':
-    h = h_estimate_func()
-    print(h)
+    # df = pd.read_csv(file, index_col=0, header=0, sep=',')
+    # series = df.resid.values
+    file_name_root = r'..\data\res_{}.csv'
+    zones = {'CNOR', 'CSUD', 'NORD', 'SARD', 'SICI', 'SUD'}
+    n_trials = 100
+    for z in zones:
+        file = file_name_root.format(z)
+        df = pd.read_csv(file, index_col=0, header=0, sep=',')
+        series = df.energy.values
+        for n in range(0, n_trials):
+            h = h_estimate_func(series)
+            print('Trial #: {}. Hurst Estimation for {} file: {}'.format(n,file, h))
 
 
 
