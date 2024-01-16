@@ -1,19 +1,7 @@
-# import numpy as np
-# import torch
-# import torch.optim as optim
-# import torch.nn as nn
-# from torchvision import datasets, transforms
-# from torch.utils.data import DataLoader
-# import torch.nn.functional as F
-# from ray import train, tune
-# from ray.tune.schedulers import ASHAScheduler
-# from utils.log_utils import init_log, dispose_log
 from model.gan_model import GanModel, Generator, Discriminator
 from utils import csv_utils
 
 from ray import train, tune
-from ray.tune.tuner import Tuner
-#from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.search.hyperopt import HyperOptSearch
 from ray.tune.schedulers import ASHAScheduler
 
@@ -68,6 +56,7 @@ class MyTrainableClass(tune.Trainable):
         #
         if self.model.ts is None or self.model.train_dataloader is None:
             self.model.ts, self.model.train_dataloader = self.model._create_dataloader()
+            self.model.ts = self.model.ts.to(self.device)
         
         # Optimizer
         #
@@ -172,13 +161,6 @@ class MyTrainableClass(tune.Trainable):
         return checkpoint
 
 
-    # def load_checkpoint(self, checkpoint_path):
-    #     checkpoint = torch.load(checkpoint_path)
-    #     self.generator.load_state_dict(checkpoint['generator_state_dict'])
-    #     self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
-    #     self.generator_optimiser.load_state_dict(checkpoint['generator_optimizer_state_dict'])
-    #     self.discriminator_optimiser.load_state_dict(checkpoint['discriminator_optimizer_state_dict'])
-        
     def load_checkpoint(self, checkpoint):
         self.generator.load_state_dict(checkpoint['generator_state_dict'])
         self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
@@ -188,6 +170,13 @@ class MyTrainableClass(tune.Trainable):
 
 
 if __name__ == '__main__':
+    is_cuda = torch.cuda.is_available()
+    #device = 'cuda:0' if is_cuda else 'cpu'
+    if not is_cuda:
+        print("Warning: CUDA not available; falling back to CPU but this is likely to be very slow.")
+    else:
+        print("CUDA is available")
+    
     zone = 'SUD'
     
     # Set up the hyperparameter search space
@@ -197,8 +186,8 @@ if __name__ == '__main__':
                 "zone": zone,
                 "t_size": 64,
                 "batch_size": tune.choice([32, 64, 128]),
-                "steps": 10,
-                "swa_step_start": 5,
+                "steps": 5000,
+                "swa_step_start": 2500,
                 "steps_per_print": 5,
             },
             "gan": {
@@ -207,7 +196,7 @@ if __name__ == '__main__':
                 "hidden_size": tune.qrandint(16, 32),
                 "mlp_size": tune.qrandint(16, 32),
                 "num_layers": 1,
-                "generator_lr": tune.qloguniform(1e-5, 1e-2),
+                "generator_lr": tune.loguniform(1e-5, 1e-2),
                 "discriminator_lr": tune.loguniform(1e-4, 1e-1),
                 "init_mult1": tune.loguniform(1e-2, 1),
                 "init_mult2": tune.loguniform(1e-2, 1),
@@ -222,7 +211,7 @@ if __name__ == '__main__':
         #search_alg=BayesOptSearch(metric="wasserstein_1d", mode="min"),  # Bayesian optimization
         search_alg=HyperOptSearch(metric="wasserstein_1d", mode="min"),
         scheduler=ASHAScheduler(),  # Early stopping
-        num_samples=5,  # Number of different hyperparameter combinations
+        #num_samples=5,  # Number of different hyperparameter combinations
         #max_concurrent_trials=5,  # Maximum concurrent trials
     )
     
@@ -232,19 +221,21 @@ if __name__ == '__main__':
         local_dir='/Users/nicolafraccarolo/Documents/GitHub/SDE-Net/hyperparameter_tuning/ray_results',
         stop={
             "training_iteration": 10,
-            #"time_total_s": 10
-        }
+            "time_total_s": 20
+        },
+        verbose=2
     )
     
     # Trainable
-    trainable = tune.with_resources(MyTrainableClass, resources={"cpu": 2})
+    trainable = tune.with_resources(MyTrainableClass, resources={"cpu": 4})
+    #trainable = MyTrainableClass
     
     # Create a Tuner and run it
-    tuner = Tuner(
+    tuner = tune.Tuner(
         trainable,
         param_space=params,
         tune_config=tune_config,
-        run_config=run_config
+        run_config=run_config,
     )
     results = tuner.fit()
     

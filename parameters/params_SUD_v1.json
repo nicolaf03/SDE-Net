@@ -1,25 +1,25 @@
 {
-    "custom": {
-      "name": "SUD_model_v1",
-      "zone": "SUD",
-      "t_size": 64,
-      "batch_size": 1024,
-      "steps": 20,
-      "swa_step_start": 10,
-      "steps_per_print": 10,
-      "num_plot_samples": 50,
-      "plot_locs": [0.1, 0.3, 0.5, 0.7, 0.9]
-    },
-    "gan": {
-      "initial_noise_size": 5,
-      "noise_size": 3,
-      "hidden_size": 16,
-      "mlp_size": 16,
-      "num_layers": 1,
-      "generator_lr": 2e-4,
-      "discriminator_lr": 1e-3,
-      "init_mult1": 1e-10,
-      "init_mult2": 1e-10,
-      "weight_decay": 0.01
-    }
+  "custom": {
+    "name": "SUD_model_v1",
+    "zone": "SUD",
+    "t_size": 64,
+    "batch_size": 512,
+    "steps": 10000,
+    "swa_step_start": 5000,
+    "steps_per_print": 10,
+    "num_plot_samples": 50,
+    "plot_locs": [0.1, 0.3, 0.5, 0.7, 0.9]
+  },
+  "gan": {
+    "initial_noise_size": 5,
+    "noise_size": 3,
+    "hidden_size": 16,
+    "mlp_size": 16,
+    "num_layers": 1,
+    "generator_lr": 2e-4,
+    "discriminator_lr": 1e-3,
+    "init_mult1": 3,
+    "init_mult2": 0.5,
+    "weight_decay": 0.01
   }
+}

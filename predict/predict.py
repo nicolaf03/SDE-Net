@@ -37,15 +37,16 @@ def predict(zone, version, device):
     model.load_training_data(curr_dir / '..' / 'data')
     
     log.info('predict...')
-    generated_samples, y_test, mean_err = model.predict(plot=True)
-    print(mean_err)
+    generated_samples, y_test, mean_err = model.predict(device, plot=True)
+    log.info('done prediction!')
 
     dispose_log(log)
     
 
 if __name__ == '__main__':
     is_cuda = torch.cuda.is_available()
-    device = 'cuda' if is_cuda else 'cpu'
+    #device = 'cuda' if is_cuda else 'cpu'
+    device = 'cpu'
     
     zone = 'SUD'
     version = 'v1'

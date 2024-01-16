@@ -57,7 +57,7 @@ class GanModel:
                 'steps': 10000,
                 'swa_step_start': 5000,
                 't_size': 64,
-                'batch_size': 1024,
+                'batch_size': 512,
                 'steps_per_print': 10,
                 'num_plot_samples': 50,
                 'plot_locs': (0.1, 0.3, 0.5, 0.7, 0.9),
@@ -440,7 +440,8 @@ class GanModel:
     #     return models, predictions, gt, festive_days, bank_holidays, ignore_d7_index
 
 
-    def predict(self, plot):
+    def predict(self, device, plot):
+
         if self.trained_generator is None or self.trained_discriminator is None:
             raise ValueError('you must train or load the model before!')
         if self.data is None:
@@ -450,18 +451,19 @@ class GanModel:
         if self.ts is None:
             self.ts, self.train_dataloader = self._create_dataloader()
             
-        ts = self.ts
+        ts = self.ts.to(device)
         test_dataloader = self.train_dataloader
         generator = self.trained_generator
         
         # Get samples
         real_samples, = next(iter(test_dataloader))
+        real_samples = real_samples.to(device)
         assert self.custom_params['num_plot_samples'] <= real_samples.size(0)
         real_samples = torchcde.LinearInterpolation(real_samples).evaluate(ts)
         real_samples = real_samples[..., 1]
 
         with torch.no_grad():
-            generated_samples = generator(ts, real_samples.size(0))
+            generated_samples = generator(ts, real_samples.size(0)).to(device)
         generated_samples = torchcde.LinearInterpolation(generated_samples).evaluate(ts)
         generated_samples = generated_samples[..., 1]
         

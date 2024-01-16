@@ -1,0 +1,30 @@
+2024-01-05 08:34:45,651 [INFO]: zone: SUD
+2024-01-05 08:34:45,652 [INFO]: loading model: SUD_v1
+2024-01-05 09:37:06,136 [INFO]: zone: SUD
+2024-01-05 09:37:06,137 [INFO]: loading model: SUD_v1
+2024-01-05 09:37:06,150 [INFO]: model train_params: {'training_data': 'res_SUD.csv', 'start_train': '2015-01', 'end_train': '2022-06', 'valid_month': '2021-06', 'test_month': '2021-08', 'trained_on': '2024-01-04', 'model_name': 'SUD_v1', 'custom': {'name': 'SUD_model_v1', 'zone': 'SUD', 't_size': 64, 'batch_size': 1024, 'steps': 5000, 'swa_step_start': 2500, 'steps_per_print': 10, 'num_plot_samples': 50, 'plot_locs': [0.1, 0.3, 0.5, 0.7, 0.9], 'validate_prev_year': [], 'weights_strategy': {}}, 'gan': {'initial_noise_size': 5, 'noise_size': 3, 'hidden_size': 16, 'mlp_size': 16, 'num_layers': 1, 'generator_lr': 0.0002, 'discriminator_lr': 0.001, 'init_mult1': 1e-10, 'init_mult2': 1e-10, 'weight_decay': 0.01}}
+2024-01-05 09:37:06,150 [INFO]: loading training data...
+2024-01-05 09:37:06,161 [INFO]: predict...
+2024-01-05 09:37:47,816 [INFO]: zone: SUD
+2024-01-05 09:37:47,816 [INFO]: loading model: SUD_v1
+2024-01-05 09:37:47,830 [INFO]: model train_params: {'training_data': 'res_SUD.csv', 'start_train': '2015-01', 'end_train': '2022-06', 'valid_month': '2021-06', 'test_month': '2021-08', 'trained_on': '2024-01-04', 'model_name': 'SUD_v1', 'custom': {'name': 'SUD_model_v1', 'zone': 'SUD', 't_size': 64, 'batch_size': 1024, 'steps': 5000, 'swa_step_start': 2500, 'steps_per_print': 10, 'num_plot_samples': 50, 'plot_locs': [0.1, 0.3, 0.5, 0.7, 0.9], 'validate_prev_year': [], 'weights_strategy': {}}, 'gan': {'initial_noise_size': 5, 'noise_size': 3, 'hidden_size': 16, 'mlp_size': 16, 'num_layers': 1, 'generator_lr': 0.0002, 'discriminator_lr': 0.001, 'init_mult1': 1e-10, 'init_mult2': 1e-10, 'weight_decay': 0.01}}
+2024-01-05 09:37:47,830 [INFO]: loading training data...
+2024-01-05 09:37:47,842 [INFO]: predict...
+2024-01-05 15:14:53,748 [INFO]: zone: SUD
+2024-01-05 15:14:53,749 [INFO]: loading model: SUD_v1
+2024-01-05 15:16:04,058 [INFO]: zone: SUD
+2024-01-05 15:16:04,060 [INFO]: loading model: SUD_v1
+2024-01-05 15:16:04,080 [INFO]: model train_params: {'training_data': 'res_SUD.csv', 'start_train': '2015-01', 'end_train': '2022-06', 'valid_month': '2021-06', 'test_month': '2021-08', 'trained_on': '2024-01-04', 'model_name': 'SUD_v1', 'custom': {'name': 'SUD_model_v1', 'zone': 'SUD', 't_size': 64, 'batch_size': 1024, 'steps': 5000, 'swa_step_start': 2500, 'steps_per_print': 10, 'num_plot_samples': 50, 'plot_locs': [0.1, 0.3, 0.5, 0.7, 0.9], 'validate_prev_year': [], 'weights_strategy': {}}, 'gan': {'initial_noise_size': 5, 'noise_size': 3, 'hidden_size': 16, 'mlp_size': 16, 'num_layers': 1, 'generator_lr': 0.0002, 'discriminator_lr': 0.001, 'init_mult1': 1e-10, 'init_mult2': 1e-10, 'weight_decay': 0.01}}
+2024-01-05 15:16:04,081 [INFO]: loading training data...
+2024-01-05 15:16:04,103 [INFO]: predict...
+2024-01-05 15:18:24,236 [INFO]: zone: SUD
+2024-01-05 15:18:24,237 [INFO]: loading model: SUD_v1
+2024-01-05 15:18:38,491 [INFO]: zone: SUD
+2024-01-05 15:18:38,492 [INFO]: loading model: SUD_v1
+2024-01-05 15:21:42,237 [INFO]: zone: SUD
+2024-01-05 15:21:42,238 [INFO]: loading model: SUD_v1
+2024-01-05 15:22:14,676 [INFO]: zone: SUD
+2024-01-05 15:22:14,678 [INFO]: loading model: SUD_v1
+2024-01-05 15:22:14,685 [INFO]: model train_params: {'training_data': 'res_SUD.csv', 'start_train': '2015-01', 'end_train': '2022-06', 'valid_month': '2021-06', 'test_month': '2021-08', 'trained_on': '2024-01-04', 'model_name': 'SUD_v1', 'custom': {'name': 'SUD_model_v1', 'zone': 'SUD', 't_size': 64, 'batch_size': 1024, 'steps': 5000, 'swa_step_start': 2500, 'steps_per_print': 10, 'num_plot_samples': 50, 'plot_locs': [0.1, 0.3, 0.5, 0.7, 0.9], 'validate_prev_year': [], 'weights_strategy': {}}, 'gan': {'initial_noise_size': 5, 'noise_size': 3, 'hidden_size': 16, 'mlp_size': 16, 'num_layers': 1, 'generator_lr': 0.0002, 'discriminator_lr': 0.001, 'init_mult1': 1e-10, 'init_mult2': 1e-10, 'weight_decay': 0.01}}
+2024-01-05 15:22:14,685 [INFO]: loading training data...
+2024-01-05 15:22:14,708 [INFO]: predict...

@@ -60,9 +60,11 @@ if __name__ == "__main__":
     
     # todo: si puo' spostare device dentro alla funzione train di GanModel
     is_cuda = torch.cuda.is_available()
-    device = 'cuda:0' if is_cuda else 'cpu'
+    device = 'cuda' if is_cuda else 'cpu'
     if not is_cuda:
         print("Warning: CUDA not available; falling back to CPU but this is likely to be very slow.")
+    else:
+        print("Using cuda")
     
     #zones = constants.ZONE
     zone = 'SUD'

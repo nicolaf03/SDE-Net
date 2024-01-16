@@ -27,7 +27,9 @@ class GeneratorFunc(torch.nn.Module):
         # x has shape (batch_size, hidden_size)
         t = t.expand(x.size(0), 1)
         tx = torch.cat([t, x], dim=1)
-        return self._drift(tx), self._diffusion(tx).view(x.size(0), self._hidden_size, self._noise_size)
+        #return self._drift(tx), self._diffusion(tx).view(x.size(0), self._hidden_size, self._noise_size)
+        #!! cambiato
+        return torch.zeros_like(self._drift(tx)), self._diffusion(tx).view(x.size(0), self._hidden_size, self._noise_size)
 
 
 class Generator(torch.nn.Module):
