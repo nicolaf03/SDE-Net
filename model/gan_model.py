@@ -1,6 +1,7 @@
 from pathlib import Path
 import torch
 import torch.optim.swa_utils as swa_utils
+from utils.pytorchtools import EarlyStopping
 import pandas as pd
 import numpy as np
 import torchcde
@@ -30,9 +31,9 @@ curr_dir = Path(__file__).parent
 class GanModel:
     def __init__(self, zone=None, params=None, log_name=None):
         self.data = None
-        #self.features = None
         self.ts = None
         self.train_dataloader = None
+        self.valid_dataloader = None
         self.test_dataloader = None
         self.trained_generator = None
         self.trained_discriminator = None
@@ -74,7 +75,7 @@ class GanModel:
                 'init_mult2': 0.5,
                 'weight_decay': 0.01
             }
-            
+    
     
     def load_training_data(self, historic_folder):
         self.data = GanModel._load_historic_data(historic_folder, self.custom_params['zone'])
@@ -82,11 +83,10 @@ class GanModel:
         if self.train_params is None:
             self.train_params = dict()
         self.train_params['training_data'] = f'res_{zone.upper()}.csv'
-        #self.features = None
         self.ts = None
         self.train_dataloader = None
     
-        
+    
     @staticmethod
     def _load_historic_data(folder, zone):
         filename = f'res_{zone.upper()}.csv'
@@ -96,13 +96,7 @@ class GanModel:
         return df
     
     
-    def _create_dataloader(self, start=None, end=None):
-        data = self.data
-        if start is not None:
-            data = data[start:]
-        if end is not None:
-            data = data[:end]
-            
+    def _create_dataloader(self, data):
         t_size = self.custom_params['t_size']
         batch_size = self.custom_params['batch_size']
 
@@ -326,45 +320,208 @@ class GanModel:
         return generator, discriminator
     
     
-    def train(self, device, start_train, end_train, test_month, valid_month=None, plot=False):
+    def _train2(self, device):
+        log = logging.getLogger(self.log_name)
+        
+        ts = self.ts.to(device)
+        train_dataloader = self.train_dataloader
+        infinite_train_dataloader = (elem for it in iter(lambda: train_dataloader, None) for elem in it)
+        valid_dataloader = self.valid_dataloader
+        infinite_valid_dataloader = (elem for it in iter(lambda: valid_dataloader, None) for elem in it)
+        
+        # unwrap gan hyperparameters
+        # todo: passare alle classi direttamente il dizionario
+        init_mult1 = self.gan_params['init_mult1']
+        init_mult2 = self.gan_params['init_mult2']
+        generator_lr = self.gan_params['generator_lr']
+        discriminator_lr = self.gan_params['discriminator_lr']
+        weight_decay = self.gan_params['weight_decay']
+        swa_step_start = self.custom_params['swa_step_start']
+        batch_size = self.custom_params['batch_size']
+        
+        # Models
+        generator = Generator(self.gan_params).to(device)
+        discriminator = Discriminator(self.gan_params).to(device)
+        
+        # Weight averaging really helps with GAN training.
+        averaged_generator = swa_utils.AveragedModel(generator)
+        averaged_discriminator = swa_utils.AveragedModel(discriminator)
+        
+        # Picking a good initialisation
+        with torch.no_grad():
+            for param in generator._initial.parameters():
+                param *= init_mult1
+            for param in generator._func.parameters():
+                param *= init_mult2
+        
+        # Optimisers. Adadelta turns out to be a much better choice than SGD or Adam, interestingly.
+        generator_optimiser = torch.optim.Adadelta(
+            generator.parameters(), 
+            lr=generator_lr, 
+            weight_decay=weight_decay
+        )
+        discriminator_optimiser = torch.optim.Adadelta(
+            discriminator.parameters(), 
+            lr=discriminator_lr,
+            weight_decay=weight_decay
+        )
+        
+
+        # Train both generator and discriminator.
+        #
+        # to track the training loss as the model trains
+        train_losses = []
+        # to track the validation loss as the model trains
+        valid_losses = []
+        # to track the average training loss per epoch as the model trains
+        avg_train_losses = []
+        # to track the average validation loss per epoch as the model trains
+        avg_valid_losses = []
+        
+        # initialize the early_stopping object
+        early_stopping = EarlyStopping(patience=self.custom_params['patience'], verbose=True)
+        
+        n_epochs = self.custom_params['n_epochs']
+        #trange = tqdm.tqdm(range(self.custom_params['steps']))
+        wandb.init(project='wind_gan')
+        for epoch in range(n_epochs):
+            
+            ###################
+            # train the model #
+            ###################
+            generator.train(), discriminator.train()
+            for step in range(self.custom_params['steps']):
+                real_samples, = next(infinite_train_dataloader)
+                real_samples = real_samples.to(device)
+                
+                generator_optimiser.zero_grad()
+                discriminator_optimiser.zero_grad()
+                
+                generated_samples = generator(ts, batch_size)
+                generated_samples = generated_samples.to(device)
+                
+                generated_score = discriminator(generated_samples)
+                generated_score = generated_score.to(device)
+                
+                real_score = discriminator(real_samples)
+                real_score = real_score.to(device)
+                
+                loss = generated_score - real_score
+                loss = loss.to(device)
+                loss.backward()
+                train_losses.append(loss.item())
+                
+                for param in generator.parameters():
+                    param.grad *= -1
+                
+                generator_optimiser.step()
+                discriminator_optimiser.step()
+             
+               
+            ######################    
+            # validate the model #
+            ######################
+            generator.eval(), discriminator.eval()
+            for real_samples in valid_dataloader:
+                real_samples = real_samples[0]
+                real_samples = real_samples.to(device)
+                
+                generated_samples = generator(ts, batch_size)
+                generated_samples = generated_samples.to(device)
+                
+                generated_score = discriminator(generated_samples)
+                generated_score = generated_score.to(device)
+                
+                real_score = discriminator(real_samples)
+                real_score = real_score.to(device)
+                
+                loss = generated_score - real_score
+                valid_losses.append(loss.item())
+            
+            
+            # print training/validation statistics 
+            # calculate average loss over an epoch
+            train_loss = np.average(train_losses)
+            avg_train_losses.append(train_loss)
+            valid_loss = np.average(valid_losses)
+            avg_valid_losses.append(valid_loss)
+            
+            epoch_len = len(str(n_epochs))
+            
+            wandb.log({'train loss': train_loss})
+            wandb.log({'valid loss': valid_loss})
+            print_msg = (
+                f'[{epoch:>{epoch_len}}/{n_epochs:>{epoch_len}}] ' +
+                f'train_loss: {train_loss:.5f} ' +
+                f'valid_loss: {valid_loss:.5f}'
+            )
+            print(print_msg)
+            
+            # clear lists to track next epoch
+            train_losses = []
+            valid_losses = []
+            
+            
+            # early_stopping needs the validation loss to check if it has decresed, 
+            # and if it has, it will make a checkpoint of the current model
+            early_stopping(valid_loss, generator, discriminator)
+            
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            
+        # load the last checkpoint with the best model
+        generator.load_state_dict(torch.load('./train/generator.pt'))
+        discriminator.load_state_dict(torch.load('./train/discriminator.pt'))
+        
+        return generator, discriminator, avg_train_losses, avg_valid_losses
+    
+    
+    def train(self, device, train_window, test_window, valid_window=None, plot=False):
         log = logging.getLogger(self.log_name)
         if self.data is None:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
         
-        if self.ts is None or self.train_dataloader is None:
-            self.ts, self.train_dataloader = self._create_dataloader()
-        
         # test_month_date = datetime.strptime(test_month, '%Y-%m')
-        if valid_month is None:
+        if valid_window is None:
             raise ValueError('validation month is \'None\' !')
-            # test_prev_year = f'{test_month_date.year - 1}-{test_month_date.month}'
-            # if test_month_date.month in self.custom_params['validate_prev_year'] and test_prev_year in self.features.index:
-            #     valid_month = test_prev_year
-            # else:
-            #     valid_month = (test_month_date - pd.DateOffset(months=2)).strftime('%Y-%m')
+            
+        start_train, end_train = train_window
+        start_valid, end_valid = valid_window
+        start_test, end_test = test_window
+        
+        df_train = self.data.loc[start_train:end_train]
+        df_valid = self.data.loc[start_valid:end_valid]
 
-        log.info(f'validation month: {valid_month}')
+        # remove valid_set from train_set
+        index_diff = df_train.index.difference(df_valid.index)
+        df_train = df_train.loc[index_diff]
+        
+        if self.ts is None or self.train_dataloader is None:
+            self.ts, self.train_dataloader = self._create_dataloader(df_train)
+        if self.valid_dataloader is None:
+            _, self.valid_dataloader = self._create_dataloader(df_valid)
+
+        log.info(f'validation month: {start_valid} - {end_valid}')
+        
+        print(f"Train data from: {df_train.index.min()} to: {df_train.index.max()}")
+        print(f"Valid data from: {df_valid.index.min()} to: {df_valid.index.max()}")
+        
+        print(f"Final data used: train {len(list(self.train_dataloader))} - valid {len(list(self.valid_dataloader))}")
 
         if self.train_params is None:
             self.train_params = dict()
         self.train_params['start_train'] = start_train
         self.train_params['end_train'] = end_train
-        self.train_params['valid_month'] = valid_month
-        self.train_params['test_month'] = test_month
+        self.train_params['start_valid'] = start_valid
+        self.train_params['end_valid'] = end_valid
+        self.train_params['start_test'] = start_test
+        self.train_params['end_test'] = end_test
+        
         self.train_params['trained_on'] = str(date.today())
 
-        df_train = self.data.loc[start_train:end_train]
-        df_valid = self.data.loc[valid_month]
-
-        # remove valid_set from train_set
-        index_diff = df_train.index.difference(df_valid.index)
-        df_train = df_train.loc[index_diff]
-
-        print(f"Final data used: train {len(df_train)} - valid {len(df_valid)}")
-        print(f"Train data from: {df_train.index.min()} to: {df_train.index.max()}")
-        print(f"Valid data from: {df_valid.index.min()} to: {df_valid.index.max()}")
-
-        self.trained_generator, self.trained_discriminator = self._train(device)
+        #self.trained_generator, self.trained_discriminator = self._train(device)
+        self.trained_generator, self.trained_discriminator, train_loss, valid_loss = self._train2(device)
 
         # if plot:
         #     lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train metric {self.custom_params['zone']}")

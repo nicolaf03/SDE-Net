@@ -22,7 +22,7 @@ def multipage(filename, figs=None, dpi=200):
     pp.close()
 
 
-def train(device, start_train, end_train, test_month, parameters, valid_month=None, plot=True, zone='', add_folder=None):
+def train(device, train_window, valid_window, test_window, parameters, plot=True, zone='', add_folder=None):
     curr_dir = Path(__file__).parent
     folder = curr_dir / '..' / 'trained_models'
     if add_folder != None:
@@ -41,7 +41,7 @@ def train(device, start_train, end_train, test_month, parameters, valid_month=No
     log.info('loading training data...')
     model.load_training_data(curr_dir / '..' / 'data')
     log.info('train...')
-    model.train(device, start_train, end_train, test_month, valid_month, plot=plot)
+    model.train(device, train_window, test_window, valid_window, plot=plot)
     log.info(f'elapsed time: {str(timedelta(seconds=time.time() - start_time))}')
     model_name = f'{parameters}'
     log.info(f'save model: {model_name}')
@@ -67,16 +67,14 @@ if __name__ == "__main__":
         print("Using cuda")
     
     #zones = constants.ZONE
-    zone = 'SUD'
 
     train(
         device=device,
-        start_train='2015-01',
-        end_train='2022-06',
-        test_month='2021-08',
-        parameters='SUD_v1',
-        valid_month='2021-06',
-        zone=zone,
+        train_window=('2015-01','2020-12'),
+        valid_window=('2021-01','2021-03'),
+        test_window=('2021-04','2021-06'),
+        parameters='SUD_v2',
+        zone='SUD',
         add_folder=None
     )
     
