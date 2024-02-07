@@ -23,7 +23,7 @@ def load_model(models_folder, parameters, model_name, device):
     return model
 
 
-def predict(zone, version, device):
+def predict(zone, version, test_window, device):
     curr_dir = Path(__file__).parent
     models_folder = curr_dir / '..' / 'trained_models'
     
@@ -36,8 +36,9 @@ def predict(zone, version, device):
     log.info('loading training data...')
     model.load_training_data(curr_dir / '..' / 'data')
     
-    log.info('predict...')
-    generated_samples, y_test, mean_err = model.predict(device, plot=True)
+    start_test, end_test = test_window
+    log.info(f'predict from {start_test} to {end_test} ...')
+    generated_samples, y_test, mean_err = model.predict(test_window, device, plot=True)
     log.info('done prediction!')
 
     dispose_log(log)
@@ -49,5 +50,6 @@ if __name__ == '__main__':
     device = 'cpu'
     
     zone = 'SUD'
-    version = 'v1'
-    predict(zone, version, device)
+    version = 'v2'
+    test_window = ('2021-07', '2021-12')
+    predict(zone, version, test_window, device)

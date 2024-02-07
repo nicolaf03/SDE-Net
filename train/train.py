@@ -41,6 +41,7 @@ def train(device, train_window, valid_window, test_window, parameters, plot=True
     log.info('loading training data...')
     model.load_training_data(curr_dir / '..' / 'data')
     log.info('train...')
+    print(f'begin train at {start_time}')
     model.train(device, train_window, test_window, valid_window, plot=plot)
     log.info(f'elapsed time: {str(timedelta(seconds=time.time() - start_time))}')
     model_name = f'{parameters}'
@@ -71,9 +72,9 @@ if __name__ == "__main__":
     train(
         device=device,
         train_window=('2015-01','2020-12'),
-        valid_window=('2021-01','2021-03'),
-        test_window=('2021-04','2021-06'),
-        parameters='SUD_v2',
+        valid_window=('2021-01','2021-09'),
+        test_window=('2021-10','2021-12'),
+        parameters='SUD_v3',
         zone='SUD',
         add_folder=None
     )

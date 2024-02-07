@@ -1,6 +1,6 @@
 {
   "custom": {
-    "name": "SUD_model_v2",
+    "name": "SUD_model_v3",
     "zone": "SUD",
     "t_size": 7,
     "batch_size": 16,
@@ -18,7 +18,7 @@
     "hidden_size": 16,
     "mlp_size": 16,
     "num_layers": 1,
-    "generator_lr": 2e-4,
+    "generator_lr": 1e-3,
     "discriminator_lr": 1e-3,
     "init_mult1": 3,
     "init_mult2": 0.5,

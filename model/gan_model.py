@@ -15,7 +15,8 @@ import time
 import tqdm
 
 import wandb
-os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'online'
+os.environ['WANDB__SERVICE_WAIT'] = '30'
 
 import utils.math_utils as math_utils
 import utils.csv_utils as csv_utils
@@ -31,12 +32,15 @@ curr_dir = Path(__file__).parent
 class GanModel:
     def __init__(self, zone=None, params=None, log_name=None):
         self.data = None
+        #
         self.ts = None
         self.train_dataloader = None
         self.valid_dataloader = None
         self.test_dataloader = None
+        #
         self.trained_generator = None
         self.trained_discriminator = None
+        #
         self.train_params = None
         self.backup_data = None
 
@@ -379,7 +383,14 @@ class GanModel:
         avg_valid_losses = []
         
         # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=self.custom_params['patience'], verbose=True)
+        path = f'./train/checkpoints/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        early_stopping = EarlyStopping(
+            patience=self.custom_params['patience'],
+            path=path,
+            verbose=True
+        )
         
         n_epochs = self.custom_params['n_epochs']
         #trange = tqdm.tqdm(range(self.custom_params['steps']))
@@ -448,8 +459,12 @@ class GanModel:
             
             epoch_len = len(str(n_epochs))
             
-            wandb.log({'train loss': train_loss})
-            wandb.log({'valid loss': valid_loss})
+            wandb.log(
+                {
+                    'train loss': train_loss,
+                    'valid loss': valid_loss
+                 }
+            )
             print_msg = (
                 f'[{epoch:>{epoch_len}}/{n_epochs:>{epoch_len}}] ' +
                 f'train_loss: {train_loss:.5f} ' +
@@ -469,10 +484,12 @@ class GanModel:
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
-            
+        
+        #run.finish()
+        
         # load the last checkpoint with the best model
-        generator.load_state_dict(torch.load('./train/generator.pt'))
-        discriminator.load_state_dict(torch.load('./train/discriminator.pt'))
+        generator.load_state_dict(torch.load(f'{path}/generator.pt'))
+        discriminator.load_state_dict(torch.load(f'{path}/discriminator.pt'))
         
         return generator, discriminator, avg_train_losses, avg_valid_losses
     
@@ -522,7 +539,7 @@ class GanModel:
 
         #self.trained_generator, self.trained_discriminator = self._train(device)
         self.trained_generator, self.trained_discriminator, train_loss, valid_loss = self._train2(device)
-
+        
         # if plot:
         #     lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train metric {self.custom_params['zone']}")
         #     pyplot.vlines(x = self.trained_model.best_iteration, ymin=0, ymax=0.3, colors="red")
@@ -653,7 +670,7 @@ class GanModel:
     #     return models, predictions, gt, festive_days, bank_holidays, ignore_d7_index
 
 
-    def predict(self, device, plot):
+    def predict(self, test_window, device, plot):
 
         if self.trained_generator is None or self.trained_discriminator is None:
             raise ValueError('you must train or load the model before!')
@@ -661,33 +678,51 @@ class GanModel:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
 
         log = logging.getLogger(self.log_name)
+        start_test, end_test = test_window
+        df_test = self.data[start_test:end_test]
         if self.ts is None:
-            self.ts, self.train_dataloader = self._create_dataloader()
+            self.ts, self.test_dataloader = self._create_dataloader(df_test)
             
         ts = self.ts.to(device)
-        test_dataloader = self.train_dataloader
+        test_dataloader = self.test_dataloader
+        #infinite_test_dataloader = (elem for it in iter(lambda: test_dataloader, None) for elem in it)
         generator = self.trained_generator
+        discriminator = self.trained_discriminator
         
+        real_samples = []
+        generated_samples = []
+        err = []
         # Get samples
-        real_samples, = next(iter(test_dataloader))
-        real_samples = real_samples.to(device)
-        assert self.custom_params['num_plot_samples'] <= real_samples.size(0)
-        real_samples = torchcde.LinearInterpolation(real_samples).evaluate(ts)
-        real_samples = real_samples[..., 1]
+        for real_sample in test_dataloader:
+            real_sample = real_sample[0]
+            real_sample = real_sample.to(device)
+            #assert self.custom_params['num_plot_samples'] <= real_samples.size(0)
+            real_sample = torchcde.LinearInterpolation(real_sample).evaluate(ts)
+            with torch.no_grad():
+                real_score = discriminator(real_sample)
+            real_sample = real_sample[..., 1]
+            real_samples.append(real_sample)
 
-        with torch.no_grad():
-            generated_samples = generator(ts, real_samples.size(0)).to(device)
-        generated_samples = torchcde.LinearInterpolation(generated_samples).evaluate(ts)
-        generated_samples = generated_samples[..., 1]
+            with torch.no_grad():
+                generated_sample = generator(ts, real_sample.size(0)).to(device)
+                generated_score = discriminator(generated_sample)
+            generated_sample = torchcde.LinearInterpolation(generated_sample).evaluate(ts)
+            generated_sample = generated_sample[..., 1]
+            generated_samples.append(generated_sample)
+            
+            loss = generated_score - real_score
+            err.append(loss.item())
+            
+        real_samples = torch.cat(real_samples, dim=0)
+        generated_samples = torch.cat(generated_samples, dim=0)
         
         if plot:
-            #plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
+            plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
             plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
-            plt.show()
+            #plt.show()
         
-        y_test = None
-        mean_err = None
-        return generated_samples, y_test, mean_err
+        mean_err = err.mean() #todo: Wasserstain 1-d
+        return generated_samples, real_samples, mean_err
     
     
     def predict2(self, start_test, end_test, device, plot):
