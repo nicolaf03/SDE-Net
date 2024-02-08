@@ -14,6 +14,9 @@ import os
 import time
 import tqdm
 
+from dtaidistance import dtw
+from utils.mmd_loss import MMDLoss
+
 import wandb
 os.environ['WANDB_MODE'] = 'online'
 os.environ['WANDB__SERVICE_WAIT'] = '30'
@@ -691,7 +694,9 @@ class GanModel:
         
         real_samples = []
         generated_samples = []
-        err = []
+        err_dtw = []
+        #err_mmd = []
+        mmd = MMDLoss()
         # Get samples
         for real_sample in test_dataloader:
             real_sample = real_sample[0]
@@ -704,14 +709,23 @@ class GanModel:
             real_samples.append(real_sample)
 
             with torch.no_grad():
-                generated_sample = generator(ts, real_sample.size(0)).to(device)
+                generated_samples_it = []
+                for i in range(3):
+                    generated_sample = generator(ts, real_sample.size(0)).to(device)
+                    generated_samples_it.append(generated_sample)
+                generated_sample = torch.mean(torch.stack(generated_samples_it, dim=0), dim=0)
+                #generated_sample = generator(ts, real_sample.size(0)).to(device)
                 generated_score = discriminator(generated_sample)
             generated_sample = torchcde.LinearInterpolation(generated_sample).evaluate(ts)
             generated_sample = generated_sample[..., 1]
             generated_samples.append(generated_sample)
             
-            loss = generated_score - real_score
-            err.append(loss.item())
+            for real_s, generated_s in zip(real_samples, generated_samples):
+                for i in range(real_s.size()[0]):
+                    err_dtw.append(dtw.distance(real_s[i,:].numpy(), generated_s[i,:].numpy()))
+                    #err_mmd.append(mmd(real_s[i,:], generated_s[i,:]).item())
+            #loss = generated_score - real_score
+            #err.append(loss.item())
             
         real_samples = torch.cat(real_samples, dim=0)
         generated_samples = torch.cat(generated_samples, dim=0)
@@ -721,7 +735,9 @@ class GanModel:
             plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
             #plt.show()
         
-        mean_err = err.mean() #todo: Wasserstain 1-d
+        mean_err_dtw = np.mean(err_dtw)
+        err_mmd = mmd(real_samples, generated_samples).item()
+        mean_err = {'DTW': mean_err_dtw, 'MMD': err_mmd}
         return generated_samples, real_samples, mean_err
     
     

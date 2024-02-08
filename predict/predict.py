@@ -39,6 +39,7 @@ def predict(zone, version, test_window, device):
     start_test, end_test = test_window
     log.info(f'predict from {start_test} to {end_test} ...')
     generated_samples, y_test, mean_err = model.predict(test_window, device, plot=True)
+    print(mean_err)
     log.info('done prediction!')
 
     dispose_log(log)
