@@ -2,6 +2,7 @@ import torch
 import torchcde
 import torchsde
 from model.mlp import MLP
+from fractional_BM.fBM import FractionalBM
 
 class GeneratorFunc(torch.nn.Module):
     sde_type = 'stratonovich'
@@ -57,12 +58,17 @@ class Generator(torch.nn.Module):
         ###################
         init_noise = torch.randn(batch_size, self._initial_noise_size, device=ts.device)
         x0 = self._initial(init_noise)
-
+        # We generate the Fractional Noise
+        h = 0.5
+        fBM = FractionalBM()
+        fBM.set_parameters([1, 0, 0, 1, h])
+        fBM_noise = torch.Tensor(fBM.simulate(n_sims=x0.size(0), t_steps=ts.size(0)-1, dt=1.0).values)
+        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1],H=fBM_noise.T)
         ###################
         # We use the reversible Heun method to get accurate gradients whilst using the adjoint method.
         ###################
         xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun', dt=1.0,
-                                     adjoint_method='adjoint_reversible_heun',)
+                                     adjoint_method='adjoint_reversible_heun',) #bm= bm_h)
         xs = xs.transpose(0, 1)
         ys = self._readout(xs)
 
