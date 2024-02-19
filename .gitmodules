@@ -1,3 +1,0 @@
-[submodule "latent_ode"]
-	path = latent_ode
-	url = https://github.com/nicolaf03/latent_ode
