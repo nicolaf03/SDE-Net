@@ -1,5 +1,4 @@
 from model.gan_model import GanModel
-import utils.constants as constants
 from utils.log_utils import init_log, dispose_log
 
 from datetime import timedelta

@@ -62,13 +62,15 @@ class Generator(torch.nn.Module):
         h = 0.5
         fBM = FractionalBM()
         fBM.set_parameters([1, 0, 0, 1, h])
-        fBM_noise = torch.Tensor(fBM.simulate(n_sims=x0.size(0), t_steps=ts.size(0)-1, dt=1.0).values)
-        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1],H=fBM_noise.T)
+        t_steps = 10
+        fBM_noise = torch.from_numpy(fBM.simulate(n_sims=x0.size(0), t_steps=t_steps, dt=t_steps * (ts.size(0))).values)[:, -1:] # we are interested in the noise at T
+        fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
+        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise )
         ###################
         # We use the reversible Heun method to get accurate gradients whilst using the adjoint method.
         ###################
-        xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun', dt=1.0,
-                                     adjoint_method='adjoint_reversible_heun',) #bm= bm_h)
+        xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun',
+                                     adjoint_method='adjoint_reversible_heun', bm=bm_h)
         xs = xs.transpose(0, 1)
         ys = self._readout(xs)
 

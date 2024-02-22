@@ -14,8 +14,8 @@
   },
   "gan": {
     "initial_noise_size": 5,
-    "noise_size": 3,
-    "hidden_size": 16,
+    "noise_size": 1,
+    "hidden_size": 1,
     "mlp_size": 16,
     "num_layers": 1,
     "generator_lr": 2e-4,
