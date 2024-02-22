@@ -2,6 +2,7 @@ import torch
 import torchcde
 import torchsde
 from model.mlp import MLP
+from fractional_BM.fBM import FractionalBM
 
 class GeneratorFunc(torch.nn.Module):
     sde_type = 'stratonovich'
@@ -59,10 +60,19 @@ class Generator(torch.nn.Module):
         x0 = self._initial(init_noise)
 
         ###################
+        # We generate the Fractional Noise
+        ###################
+        h = 0.5
+        fBM = FractionalBM()
+        fBM.set_parameters([1, 0, 0, 1, h])
+        fBM_noise = torch.Tensor(fBM.simulate(n_sims=x0.size(0), t_steps=ts.size(0)-1, dt=1.0).values)
+        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise.T)
+        
+        ###################
         # We use the reversible Heun method to get accurate gradients whilst using the adjoint method.
         ###################
         xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun', dt=1.0,
-                                     adjoint_method='adjoint_reversible_heun',)
+                                     adjoint_method='adjoint_reversible_heun',) #bm= bm_h)
         xs = xs.transpose(0, 1)
         ys = self._readout(xs)
 
@@ -71,3 +81,43 @@ class Generator(torch.nn.Module):
         ###################
         ts = ts.unsqueeze(0).unsqueeze(-1).expand(batch_size, ts.size(0), 1)
         return torchcde.linear_interpolation_coeffs(torch.cat([ts, ys], dim=2))
+
+  
+if __name__ == '__main__':
+    print('hello')
+    
+    params = {
+        "custom": {
+            "name": "SUD_model_v2",
+            "zone": "SUD",
+            "t_size": 7,
+            "batch_size": 16,
+            "n_epochs": 10000,
+            "patience": 1000,
+            "steps": 200,
+            "swa_step_start": 5000,
+            "steps_per_print": 10,
+            "num_plot_samples": 50,
+            "plot_locs": [0.1, 0.3, 0.5, 0.7, 0.9]
+        },
+        "gan": {
+            "initial_noise_size": 5,
+            "noise_size": 3,
+            "hidden_size": 15, # cambiato qui!
+            "mlp_size": 16,
+            "num_layers": 1,
+            "generator_lr": 2e-4,
+            "discriminator_lr": 1e-3,
+            "init_mult1": 3,
+            "init_mult2": 0.5,
+            "weight_decay": 0.01
+        }
+    }
+    
+    batch_size = params['custom']['batch_size']
+    t_size = params['custom']['t_size']
+    ts = torch.linspace(0, t_size - 1, t_size)
+    
+    generator = Generator(params['gan'])
+    generator(ts, batch_size)
+        

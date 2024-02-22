@@ -482,7 +482,7 @@ class GanModel:
             
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
-            early_stopping(valid_loss, generator, discriminator)
+            early_stopping(2, generator, discriminator)
             
             if early_stopping.early_stop:
                 print("Early stopping")
@@ -724,6 +724,7 @@ class GanModel:
                 for i in range(real_s.size()[0]):
                     err_dtw.append(dtw.distance(real_s[i,:].numpy(), generated_s[i,:].numpy()))
                     #err_mmd.append(mmd(real_s[i,:], generated_s[i,:]).item())
+                #err_mmd.append(mmd(real_s, generated_s).item())
             #loss = generated_score - real_score
             #err.append(loss.item())
             
@@ -736,6 +737,7 @@ class GanModel:
             #plt.show()
         
         mean_err_dtw = np.mean(err_dtw)
+        #mean_err_mmd = np.mean(err_mmd)
         err_mmd = mmd(real_samples, generated_samples).item()
         mean_err = {'DTW': mean_err_dtw, 'MMD': err_mmd}
         return generated_samples, real_samples, mean_err
