@@ -62,7 +62,7 @@ class Generator(torch.nn.Module):
         h = 0.5
         fBM = FractionalBM()
         fBM.set_parameters([1, 0, 0, 1, h])
-        t_steps = 10
+        t_steps = 10 # note it can be modified
         fBM_noise = torch.from_numpy(fBM.simulate(n_sims=x0.size(0), t_steps=t_steps, dt=t_steps * (ts.size(0))).values)[:, -1:] # we are interested in the noise at T
         fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
         bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise )
