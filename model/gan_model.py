@@ -41,8 +41,8 @@ class GanModel:
         self.valid_dataloader = None
         self.test_dataloader = None
         #
-        self.trained_generator = None
-        self.trained_discriminator = None
+        self.generator = None
+        self.discriminator = None
         #
         self.train_params = None
         self.backup_data = None
@@ -56,6 +56,8 @@ class GanModel:
         if params is not None:
             self.custom_params = params['custom']
             self.gan_params = params['gan']
+            self.generator = Generator(self.gan_params)
+            self.discriminator = Discriminator(self.gan_params)
         else:
             if zone is None:
                 raise ValueError('you should set the params or the zone!')
@@ -215,119 +217,119 @@ class GanModel:
         return total_loss / total_samples
     
     
+    # def _train(self, device):
+    #     log = logging.getLogger(self.log_name)
+        
+    #     ts = self.ts.to(device)
+    #     train_dataloader = self.train_dataloader
+    #     infinite_train_dataloader = (elem for it in iter(lambda: train_dataloader, None) for elem in it)
+
+    #     # unwrap gan hyperparameters
+    #     # todo: passare alle classi direttamente il dizionario
+    #     init_mult1 = self.gan_params['init_mult1']
+    #     init_mult2 = self.gan_params['init_mult2']
+    #     generator_lr = self.gan_params['generator_lr']
+    #     discriminator_lr = self.gan_params['discriminator_lr']
+    #     weight_decay = self.gan_params['weight_decay']
+    #     swa_step_start = self.custom_params['swa_step_start']
+    #     batch_size = self.custom_params['batch_size']
+        
+    #     # Models
+    #     generator = Generator(self.gan_params).to(device)
+    #     discriminator = Discriminator(self.gan_params).to(device)
+        
+    #     # Weight averaging really helps with GAN training.
+    #     averaged_generator = swa_utils.AveragedModel(generator)
+    #     averaged_discriminator = swa_utils.AveragedModel(discriminator)
+        
+    #     # Picking a good initialisation
+    #     with torch.no_grad():
+    #         for param in generator._initial.parameters():
+    #             param *= init_mult1
+    #         for param in generator._func.parameters():
+    #             param *= init_mult2
+        
+    #     # Optimisers. Adadelta turns out to be a much better choice than SGD or Adam, interestingly.
+    #     generator_optimiser = torch.optim.Adadelta(generator.parameters(), lr=generator_lr, weight_decay=weight_decay)
+    #     discriminator_optimiser = torch.optim.Adadelta(discriminator.parameters(), lr=discriminator_lr,
+    #                                                 weight_decay=weight_decay)
+
+    #     # Train both generator and discriminator.
+    #     trange = tqdm.tqdm(range(self.custom_params['steps']))
+    #     wandb.init(project='wind_gan')
+    #     for step in trange:
+    #         real_samples, = next(infinite_train_dataloader)
+    #         real_samples = real_samples.to(device)
+
+    #         generated_samples = generator(ts, batch_size)
+    #         generated_samples = generated_samples.to(device)
+            
+    #         generated_score = discriminator(generated_samples)
+    #         generated_score = generated_score.to(device)
+            
+    #         real_score = discriminator(real_samples)
+    #         real_score = real_score.to(device)
+            
+    #         loss = generated_score - real_score
+    #         loss = loss.to(device)
+            
+    #         wandb.log({'train loss': loss})
+            
+    #         loss.backward()
+
+    #         for param in generator.parameters():
+    #             param.grad *= -1
+    #         generator_optimiser.step()
+    #         discriminator_optimiser.step()
+    #         generator_optimiser.zero_grad()
+    #         discriminator_optimiser.zero_grad()
+
+    #         ###################
+    #         # We constrain the Lipschitz constant of the discriminator using carefully-chosen clipping (and the use of
+    #         # LipSwish activation functions).
+    #         ###################
+    #         with torch.no_grad():
+    #             for module in discriminator.modules():
+    #                 if isinstance(module, torch.nn.Linear):
+    #                     lim = 1 / module.out_features
+    #                     module.weight.clamp_(-lim, lim)
+
+    #         # Stochastic weight averaging typically improves performance.
+    #         if step > swa_step_start:
+    #             averaged_generator.update_parameters(generator)
+    #             averaged_discriminator.update_parameters(discriminator)
+
+    #         if (step % self.custom_params['steps_per_print']) == 0 or step == self.custom_params['steps'] - 1:
+    #             total_unaveraged_loss = GanModel._evaluate_loss(
+    #                 ts, 
+    #                 batch_size, 
+    #                 train_dataloader,
+    #                 generator, 
+    #                 discriminator, 
+    #                 device
+    #             )
+    #             if step > swa_step_start:
+    #                 total_averaged_loss = GanModel._evaluate_loss(
+    #                     ts, 
+    #                     batch_size,
+    #                     train_dataloader,
+    #                     averaged_generator.module,
+    #                     averaged_discriminator.module, 
+    #                     device
+    #                 )
+    #                 trange.write(
+    #                     f"Step: {step:3} Loss (unaveraged): {total_unaveraged_loss:.4f} "
+    #                     f"Loss (averaged): {total_averaged_loss:.4f}"
+    #                 )
+    #             else:
+    #                 trange.write(f"Step: {step:3} Loss (unaveraged): {total_unaveraged_loss:.4f}")
+    #     generator.load_state_dict(averaged_generator.module.state_dict())
+    #     discriminator.load_state_dict(averaged_discriminator.module.state_dict())
+        
+    #     return generator, discriminator
+    
+    
     def _train(self, device):
-        log = logging.getLogger(self.log_name)
-        
-        ts = self.ts.to(device)
-        train_dataloader = self.train_dataloader
-        infinite_train_dataloader = (elem for it in iter(lambda: train_dataloader, None) for elem in it)
-
-        # unwrap gan hyperparameters
-        # todo: passare alle classi direttamente il dizionario
-        init_mult1 = self.gan_params['init_mult1']
-        init_mult2 = self.gan_params['init_mult2']
-        generator_lr = self.gan_params['generator_lr']
-        discriminator_lr = self.gan_params['discriminator_lr']
-        weight_decay = self.gan_params['weight_decay']
-        swa_step_start = self.custom_params['swa_step_start']
-        batch_size = self.custom_params['batch_size']
-        
-        # Models
-        generator = Generator(self.gan_params).to(device)
-        discriminator = Discriminator(self.gan_params).to(device)
-        
-        # Weight averaging really helps with GAN training.
-        averaged_generator = swa_utils.AveragedModel(generator)
-        averaged_discriminator = swa_utils.AveragedModel(discriminator)
-        
-        # Picking a good initialisation
-        with torch.no_grad():
-            for param in generator._initial.parameters():
-                param *= init_mult1
-            for param in generator._func.parameters():
-                param *= init_mult2
-        
-        # Optimisers. Adadelta turns out to be a much better choice than SGD or Adam, interestingly.
-        generator_optimiser = torch.optim.Adadelta(generator.parameters(), lr=generator_lr, weight_decay=weight_decay)
-        discriminator_optimiser = torch.optim.Adadelta(discriminator.parameters(), lr=discriminator_lr,
-                                                    weight_decay=weight_decay)
-
-        # Train both generator and discriminator.
-        trange = tqdm.tqdm(range(self.custom_params['steps']))
-        wandb.init(project='wind_gan')
-        for step in trange:
-            real_samples, = next(infinite_train_dataloader)
-            real_samples = real_samples.to(device)
-
-            generated_samples = generator(ts, batch_size)
-            generated_samples = generated_samples.to(device)
-            
-            generated_score = discriminator(generated_samples)
-            generated_score = generated_score.to(device)
-            
-            real_score = discriminator(real_samples)
-            real_score = real_score.to(device)
-            
-            loss = generated_score - real_score
-            loss = loss.to(device)
-            
-            wandb.log({'train loss': loss})
-            
-            loss.backward()
-
-            for param in generator.parameters():
-                param.grad *= -1
-            generator_optimiser.step()
-            discriminator_optimiser.step()
-            generator_optimiser.zero_grad()
-            discriminator_optimiser.zero_grad()
-
-            ###################
-            # We constrain the Lipschitz constant of the discriminator using carefully-chosen clipping (and the use of
-            # LipSwish activation functions).
-            ###################
-            with torch.no_grad():
-                for module in discriminator.modules():
-                    if isinstance(module, torch.nn.Linear):
-                        lim = 1 / module.out_features
-                        module.weight.clamp_(-lim, lim)
-
-            # Stochastic weight averaging typically improves performance.
-            if step > swa_step_start:
-                averaged_generator.update_parameters(generator)
-                averaged_discriminator.update_parameters(discriminator)
-
-            if (step % self.custom_params['steps_per_print']) == 0 or step == self.custom_params['steps'] - 1:
-                total_unaveraged_loss = GanModel._evaluate_loss(
-                    ts, 
-                    batch_size, 
-                    train_dataloader,
-                    generator, 
-                    discriminator, 
-                    device
-                )
-                if step > swa_step_start:
-                    total_averaged_loss = GanModel._evaluate_loss(
-                        ts, 
-                        batch_size,
-                        train_dataloader,
-                        averaged_generator.module,
-                        averaged_discriminator.module, 
-                        device
-                    )
-                    trange.write(
-                        f"Step: {step:3} Loss (unaveraged): {total_unaveraged_loss:.4f} "
-                        f"Loss (averaged): {total_averaged_loss:.4f}"
-                    )
-                else:
-                    trange.write(f"Step: {step:3} Loss (unaveraged): {total_unaveraged_loss:.4f}")
-        generator.load_state_dict(averaged_generator.module.state_dict())
-        discriminator.load_state_dict(averaged_discriminator.module.state_dict())
-        
-        return generator, discriminator
-    
-    
-    def _train2(self, device):
         log = logging.getLogger(self.log_name)
         
         ts = self.ts.to(device)
@@ -343,16 +345,16 @@ class GanModel:
         generator_lr = self.gan_params['generator_lr']
         discriminator_lr = self.gan_params['discriminator_lr']
         weight_decay = self.gan_params['weight_decay']
-        swa_step_start = self.custom_params['swa_step_start']
+        # swa_step_start = self.custom_params['swa_step_start']
         batch_size = self.custom_params['batch_size']
         
-        # Models
-        generator = Generator(self.gan_params).to(device)
-        discriminator = Discriminator(self.gan_params).to(device)
+        # Models to device
+        generator = self.generator.to(device)
+        discriminator = self.discriminator.to(device)
         
         # Weight averaging really helps with GAN training.
-        averaged_generator = swa_utils.AveragedModel(generator)
-        averaged_discriminator = swa_utils.AveragedModel(discriminator)
+        # averaged_generator = swa_utils.AveragedModel(generator)
+        # averaged_discriminator = swa_utils.AveragedModel(discriminator)
         
         # Picking a good initialisation
         with torch.no_grad():
@@ -482,7 +484,7 @@ class GanModel:
             
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
-            early_stopping(2, generator, discriminator)
+            early_stopping(valid_loss, generator, discriminator)
             
             if early_stopping.early_stop:
                 print("Early stopping")
@@ -540,8 +542,8 @@ class GanModel:
         
         self.train_params['trained_on'] = str(date.today())
 
-        #self.trained_generator, self.trained_discriminator = self._train(device)
-        self.trained_generator, self.trained_discriminator, train_loss, valid_loss = self._train2(device)
+        #self.generator, self.discriminator = self._train(device)
+        self.generator, self.discriminator, train_loss, valid_loss = self._train(device)
         
         # if plot:
         #     lgb.plot_metric(result, metric=self.lgb_params['metric'], title=f"train metric {self.custom_params['zone']}")
@@ -675,7 +677,7 @@ class GanModel:
 
     def predict(self, test_window, device, plot):
 
-        if self.trained_generator is None or self.trained_discriminator is None:
+        if self.generator is None or self.discriminator is None:
             raise ValueError('you must train or load the model before!')
         if self.data is None:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
@@ -689,8 +691,8 @@ class GanModel:
         ts = self.ts.to(device)
         test_dataloader = self.test_dataloader
         #infinite_test_dataloader = (elem for it in iter(lambda: test_dataloader, None) for elem in it)
-        generator = self.trained_generator
-        discriminator = self.trained_discriminator
+        generator = self.generator
+        discriminator = self.discriminator
         
         real_samples = []
         generated_samples = []
@@ -745,7 +747,7 @@ class GanModel:
     
     def predict2(self, start_test, end_test, device, plot):
 
-        if self.trained_generator is None or self.trained_discriminator is None:
+        if self.generator is None or self.discriminator is None:
             raise ValueError('you must train or load the model before!')
         if self.data is None:
             raise ValueError('you must call \'load_training_data\' before \'train\' !')
@@ -755,7 +757,7 @@ class GanModel:
         self.ts, test_dataloader = self._create_test_dataloader(start=start_test, end=end_test)
         ts = self.ts.to(device)
         
-        generator = self.trained_generator
+        generator = self.generator
 
         # Get samples
         real_samples, = next(iter(test_dataloader))
@@ -813,13 +815,13 @@ class GanModel:
     
     
     def save_model(self, folder, name):
-        if self.trained_generator is None or self.trained_discriminator is None:
+        if self.generator is None or self.discriminator is None:
             raise ValueError('you must train or load the model before!')
 
         [generator_filename, discriminator_filename, train_params_filename] = self.filenames(name)
 
-        torch.save(self.trained_generator.state_dict(), str((Path(folder) / generator_filename).resolve()))
-        torch.save(self.trained_discriminator.state_dict(), str((Path(folder) / discriminator_filename).resolve()))
+        torch.save(self.generator.state_dict(), str((Path(folder) / generator_filename).resolve()))
+        torch.save(self.discriminator.state_dict(), str((Path(folder) / discriminator_filename).resolve()))
 
         # save train params
         self.train_params['model_name'] = name
@@ -836,15 +838,16 @@ class GanModel:
 
         if self.custom_params is None or self.gan_params is None:
             raise ValueError('you must call \'load_params\'!')
-        self.trained_generator = Generator(self.gan_params)
-        self.trained_discriminator = Discriminator(self.gan_params)
+        # if self.generator is None or self.discriminator is None:
+        #     self.generator = Generator(self.gan_params)
+        #     self.discriminator = Discriminator(self.gan_params)
         
-        self.trained_generator.load_state_dict(
+        self.generator.load_state_dict(
             torch.load(str((Path(folder) / generator_filename).resolve()),
                        map_location=torch.device(device)
             )
         )
-        self.trained_discriminator.load_state_dict(
+        self.discriminator.load_state_dict(
             torch.load(str((Path(folder) / discriminator_filename).resolve()),
                        map_location=torch.device(device)
             )
