@@ -1,0 +1,32 @@
+{
+  "custom": {
+    "batch_size": 16,
+    "name": "SUD_v2",
+    "patience": 1000,
+    "steps": 200,
+    "steps_per_print": 5,
+    "swa_step_start": 2500,
+    "t_size": 7,
+    "train_window": [
+      "2015-01",
+      "2020-12"
+    ],
+    "valid_window": [
+      "2021-01",
+      "2021-09"
+    ],
+    "zone": "SUD"
+  },
+  "gan": {
+    "discriminator_lr": 0.002257340630091527,
+    "generator_lr": 1.2317209791261492e-05,
+    "hidden_size": 16,
+    "init_mult1": 3,
+    "init_mult2": 0.5,
+    "initial_noise_size": 5,
+    "mlp_size": 16,
+    "noise_size": 3,
+    "num_layers": 1,
+    "weight_decay": 0.01
+  }
+}

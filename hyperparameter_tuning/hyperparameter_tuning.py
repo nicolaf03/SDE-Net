@@ -35,6 +35,7 @@ class MyTrainableClass(tune.Trainable):
         
         # log.info('loading training data...')
         #model.load_training_data(curr_dir / '..' / 'data')
+        #! ABSOLUTE PATH
         data_file_path = f'~/Documents/GitHub/SDE-Net/data/res_{zone.upper()}.csv'
         model.data = csv_utils.load_data(data_file_path)
         
@@ -42,6 +43,7 @@ class MyTrainableClass(tune.Trainable):
             model.train_params = dict()
         model.train_params['training_data'] = f'res_{zone.upper()}.csv'
         
+        #! ABSOLUTE PATH
         models_folder = '../../../../trained_models'
         model_name = params['custom']['name']
         model.load_model(models_folder, model_name, self.device)
@@ -92,6 +94,7 @@ class MyTrainableClass(tune.Trainable):
         
         # Early stopping
         #
+        #! ABSOLUTE PATH
         path = f'./train/checkpoints/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
         if not os.path.exists(path):
             os.makedirs(path)
@@ -236,38 +239,31 @@ if __name__ == '__main__':
         pass  # already initialized
     
     # TuneConfig
-    # current_best_params = [{
-    #     'generator_lr': 2e-4,
-    #     'discriminator_lr': 1e-3,
-    #     'init_mult1': 3,
-    #     'init_mult2': 0.5
-    # }]
-    current_best_params = [{
-        "custom": {
-            "name": f"{zone}_v2",
-            "zone": zone,
-            "train_window": ('2015-01','2020-12'),
-            "valid_window": ('2021-01','2021-09'),
-            "t_size": 7,
-            "batch_size": 16,#tune.choice([32, 64, 128]),
-            "steps": 200,
-            "patience": 1000,
-            "swa_step_start": 2500,
-            "steps_per_print": 5,
-        },
-        "gan": {
-            "initial_noise_size": 5,#tune.qrandint(5, 10),
-            "noise_size": 3,#tune.qrandint(3, 10),
-            "hidden_size": 16,#tune.qrandint(16, 32),
-            "mlp_size": 16,#tune.qrandint(16, 32),
-            "num_layers": 1,
-            "generator_lr": 2e-4,
-            "discriminator_lr": 1e-3,
-            "init_mult1": 3,
-            "init_mult2": 0.5,
-            "weight_decay": 0.01
+    current_best_params = [
+        {
+            "custom/name": f"{zone}_v2",
+            "custom/zone": zone,
+            "custom/train_window": ('2015-01','2020-12'),
+            "custom/valid_window": ('2021-01','2021-09'),
+            "custom/t_size": 7,
+            "custom/batch_size": 16,#tune.choice([32, 64, 128]),
+            "custom/steps": 200,
+            "custom/patience": 1000,
+            "custom/swa_step_start": 2500,
+            "custom/steps_per_print": 5,
+            #
+            "gan/initial_noise_size": 5,#tune.qrandint(5, 10),
+            "gan/noise_size": 3,#tune.qrandint(3, 10),
+            "gan/hidden_size": 16,#tune.qrandint(16, 32),
+            "gan/mlp_size": 16,#tune.qrandint(16, 32),
+            "gan/num_layers": 1,
+            "gan/generator_lr": 2e-4,
+            "gan/discriminator_lr": 1e-3,
+            "gan/init_mult1": 3,
+            "gan/init_mult2": 0.5,
+            "gan/weight_decay": 0.01
         }
-    }]
+    ]
     tune_config = tune.TuneConfig(
         metric='wasserstein_1d',
         mode='min',
@@ -281,19 +277,20 @@ if __name__ == '__main__':
             # mode='min',
             max_t=15
         ), 
-        num_samples=5,  # Number of different hyperparameter combinations
+        num_samples=100,  # Number of different hyperparameter combinations
         #max_concurrent_trials=5,  # Maximum concurrent trials
     )
     
     # RunConfig
     run_config = train.RunConfig(
         name='SUD_learning_rate_tuning',
+        #! ABSOLUTE PATH
         local_dir='/Users/nicolafraccarolo/Documents/GitHub/SDE-Net/hyperparameter_tuning/ray_results',
         stop={
             "training_iteration": 100,
             "time_total_s": 200
         },
-        verbose=2
+        verbose=1
     )
     
     # Trainable

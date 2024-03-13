@@ -1,0 +1,2 @@
+wasserstein_1d,done,training_iteration,trial_id,date,timestamp,time_this_iter_s,time_total_s,pid,hostname,node_ip,time_since_restore,iterations_since_restore
+-947.0453527113971,True,1,f8366880,2024-03-12_14-11-48,1710249108,18.329177141189575,18.329177141189575,48725,MacBookAir-di-Nicola,127.0.0.1,18.329177141189575,1
