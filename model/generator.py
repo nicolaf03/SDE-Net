@@ -4,6 +4,8 @@ import torchsde
 from model.mlp import MLP
 from fractional_BM.fBM import FractionalBM
 
+import numpy as np
+
 class GeneratorFunc(torch.nn.Module):
     sde_type = 'stratonovich'
     noise_type = 'general'
@@ -45,10 +47,28 @@ class Generator(torch.nn.Module):
         
         self._initial_noise_size = initial_noise_size
         self._hidden_size = hidden_size
+        self.n_sims = 1000 # n of fBM simulation
 
         self._initial = MLP(initial_noise_size, hidden_size, mlp_size, num_layers, tanh=False)
         self._func = GeneratorFunc(noise_size, hidden_size, mlp_size, num_layers)
         self._readout = torch.nn.Linear(hidden_size, data_size)
+        self._bm_h = self.get_fractional_noise(torch.tensor([0., 1., 2., 3., 4., 5., 6.]))
+
+    def get_fractional_trajectories(self, ts, idx_size):
+        all_idx = np.arange(0, self.n_sims)
+        idx = np.random.choice(all_idx, size=idx_size, replace=True)
+        return torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=self._bm_h[idx,:])
+
+    def get_fractional_noise(self, ts):
+        # We generate the Fractional Noise
+        h = 0.5
+        fBM = FractionalBM()
+        fBM.set_parameters([1, 0, 0, 1, h])
+        t_steps = 1 # note it can be modified
+        fBM_noise = torch.from_numpy(fBM.simulate(n_sims=self.n_sims, t_steps=t_steps, dt=1 / (t_steps * (ts.size(0)))).values)[:, -1:] # we are interested in the noise at T
+        fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
+        return fBM_noise
+
 
     def forward(self, ts, batch_size):
         # ts has shape (t_size,) and corresponds to the points we want to evaluate the SDE at.
@@ -58,19 +78,14 @@ class Generator(torch.nn.Module):
         ###################
         init_noise = torch.randn(batch_size, self._initial_noise_size, device=ts.device)
         x0 = self._initial(init_noise)
-        # We generate the Fractional Noise
-        h = 0.5
-        fBM = FractionalBM()
-        fBM.set_parameters([1, 0, 0, 1, h])
-        t_steps = 1 # note it can be modified
-        fBM_noise = torch.from_numpy(fBM.simulate(n_sims=x0.size(0), t_steps=t_steps, dt=1 / (t_steps * (ts.size(0)))).values)[:, -1:] # we are interested in the noise at T
-        fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
-        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise )
+
         ###################
         # We use the reversible Heun method to get accurate gradients whilst using the adjoint method.
         ###################
+        n = x0.size(0)
+        fBM_slice = self.get_fractional_trajectories(ts, n)
         xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun',
-                                     adjoint_method='adjoint_reversible_heun', bm=bm_h)
+                                     adjoint_method='adjoint_reversible_heun', bm=fBM_slice)
         xs = xs.transpose(0, 1)
         ys = self._readout(xs)
 

@@ -52,7 +52,7 @@ class FractionalBM:
         #Cholesky's method (not the most efficient), see https://github.com/732jhy/Fractional-Brownian-Motion
         # See also https://en.wikipedia.org/wiki/Fractional_Brownian_motion method1
 
-        gamma = lambda s, t: self._autocovariance(s, t)
+        # gamma = lambda s, t: self._autocovariance(s, t)
         simulations = np.arange(0, n_sims)
         time_span = np.arange(0, (t_steps + 1) * dt, dt)
         simulation_df = pd.DataFrame(data=np.empty((n_sims, t_steps + 1)), index=simulations, columns=time_span)
