@@ -57,7 +57,7 @@ class Generator(torch.nn.Module):
     def get_fractional_trajectories(self, ts, idx_size):
         all_idx = np.arange(0, self.n_sims)
         idx = np.random.choice(all_idx, size=idx_size, replace=True)
-        return torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=self._bm_h[idx,:])
+        return torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=self._bm_h[idx])
 
     def get_fractional_noise(self, ts):
         # We generate the Fractional Noise
@@ -67,6 +67,7 @@ class Generator(torch.nn.Module):
         t_steps = 1 # note it can be modified
         fBM_noise = torch.from_numpy(fBM.simulate(n_sims=self.n_sims, t_steps=t_steps, dt=1 / (t_steps * (ts.size(0)))).values)[:, -1:] # we are interested in the noise at T
         fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
+        fBM_noise = fBM_noise.clone().detach().requires_grad_(True)
         return fBM_noise
 
 
