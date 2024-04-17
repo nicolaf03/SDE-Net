@@ -66,10 +66,10 @@ class Generator(torch.nn.Module):
         fBM.set_parameters([1, 0, 0, 1, h])
         t_steps = 1 # note it can be modified
         fBM_noise = torch.from_numpy(fBM.simulate(n_sims=self.n_sims, t_steps=t_steps, dt=1 / (t_steps * (ts.size(0)))).values)[:, -1:] # we are interested in the noise at T
-        fBM_noise = torch.tensor(fBM_noise, dtype=torch.float32)
-        fBM_noise = fBM_noise.clone().detach().requires_grad_(True)
-        return fBM_noise
-
+        # fBM_noise1 = torch.tensor(fBM_noise, dtype=torch.float32)
+        fBM_noise0 = fBM_noise.clone().detach().type(torch.float32)
+        # fBM.simulate(n_sims=self.n_sims, t_steps=t_steps, dt=1 / (t_steps * (ts.size(0)))).values)[:, -1:]
+        return fBM_noise0
 
     def forward(self, ts, batch_size):
         # ts has shape (t_size,) and corresponds to the points we want to evaluate the SDE at.
