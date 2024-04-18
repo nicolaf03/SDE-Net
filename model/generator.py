@@ -56,7 +56,7 @@ class Generator(torch.nn.Module):
 
     def get_fractional_trajectories(self, ts, idx_size):
         all_idx = np.arange(0, self.n_sims)
-        idx = np.random.choice(all_idx, size=idx_size, replace=True)
+        idx = np.random.choice(all_idx, size=idx_size, replace=False)
         return torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=self._bm_h[idx])
 
     def get_fractional_noise(self, ts):
