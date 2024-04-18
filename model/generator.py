@@ -58,21 +58,31 @@ class Generator(torch.nn.Module):
         ###################
         init_noise = torch.randn(batch_size, self._initial_noise_size, device=ts.device)
         x0 = self._initial(init_noise)
-
-        ###################
+        
+        #****************************************
         # We generate the Fractional Noise
-        ###################
-        h = 0.5
-        fBM = FractionalBM()
-        fBM.set_parameters([1, 0, 0, 1, h])
-        fBM_noise = torch.Tensor(fBM.simulate(n_sims=x0.size(0), t_steps=ts.size(0)-1, dt=1.0).values)
-        bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise.T)
+        # h = 0.5
+        # fBM = FractionalBM()
+        # fBM.set_parameters([1, 0, 0, 1, h])
+        # t_steps = 1
+        # fBM_noise = torch.from_numpy(fBM.simulate(n_sims=x0.size(0), t_steps=t_steps, dt=1/(t_steps * (ts.size(0)))).values)[:, -1:] # we are interested in the noise at T
+        
+        # fBM_noise = fBM_noise.to(ts.device)
+        # bm_h = torchsde.BrownianInterval(t0=ts[0], t1=ts[-1], H=fBM_noise.float())
+        #****************************************
         
         ###################
         # We use the reversible Heun method to get accurate gradients whilst using the adjoint method.
         ###################
-        xs = torchsde.sdeint_adjoint(self._func, x0, ts, method='reversible_heun', dt=1.0,
-                                     adjoint_method='adjoint_reversible_heun',) #bm= bm_h)
+        xs = torchsde.sdeint_adjoint(
+            self._func, x0, ts, 
+            method='reversible_heun', 
+            adjoint_method='adjoint_reversible_heun',
+            dt=1.0,
+            #**********
+            #bm=bm_h
+            #**********
+        )
         xs = xs.transpose(0, 1)
         ys = self._readout(xs)
 
@@ -101,10 +111,10 @@ if __name__ == '__main__':
             "plot_locs": [0.1, 0.3, 0.5, 0.7, 0.9]
         },
         "gan": {
-            "initial_noise_size": 5,
-            "noise_size": 3,
-            "hidden_size": 15, # cambiato qui!
-            "mlp_size": 16,
+            "initial_noise_size": 4,
+            "noise_size": 4,
+            "hidden_size": 14,
+            "mlp_size": 88,
             "num_layers": 1,
             "generator_lr": 2e-4,
             "discriminator_lr": 1e-3,

@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import pdb
 
 def plot_hist(real_samples, generated_samples, plot_locs, zone):
     for prop in plot_locs:

@@ -712,10 +712,11 @@ class GanModel:
 
             with torch.no_grad():
                 generated_samples_it = []
-                for i in range(3):
+                for i in range(1):
                     generated_sample = generator(ts, real_sample.size(0)).to(device)
                     generated_samples_it.append(generated_sample)
                 generated_sample = torch.mean(torch.stack(generated_samples_it, dim=0), dim=0)
+                generated_sample = generated_sample - generated_sample[:, 0].unsqueeze(1)
                 #generated_sample = generator(ts, real_sample.size(0)).to(device)
                 generated_score = discriminator(generated_sample)
             generated_sample = torchcde.LinearInterpolation(generated_sample).evaluate(ts)
@@ -860,4 +861,47 @@ class GanModel:
 
 
 if __name__ == '__main__':
-    print('hello')
+    print('main gan_model')
+    
+    params = {
+        "custom": {
+            "name": "SUD_model_v2",
+            "zone": "SUD",
+            "t_size": 7,
+            "batch_size": 16,
+            "n_epochs": 10000,
+            "patience": 1000,
+            "steps": 200,
+            "swa_step_start": 5000,
+            "steps_per_print": 10,
+            "num_plot_samples": 50,
+            "plot_locs": [0.1, 0.3, 0.5, 0.7, 0.9]
+        },
+        "gan": {
+            "initial_noise_size": 4,
+            "noise_size": 4,
+            "hidden_size": 14,
+            "mlp_size": 88,
+            "num_layers": 1,
+            "generator_lr": 2e-4,
+            "discriminator_lr": 1e-3,
+            "init_mult1": 3,
+            "init_mult2": 0.5,
+            "weight_decay": 0.01
+        }
+    }
+    
+    batch_size = params['custom']['batch_size']
+    t_size = params['custom']['t_size']
+    ts = torch.linspace(0, t_size - 1, t_size)
+    
+    generator = Generator(params['gan'])
+    discriminator = Discriminator(params['gan'])
+    
+    generator.eval()
+    discriminator.eval()
+    
+    generated_samples = generator(ts, batch_size)
+    discriminator(generated_samples)
+    
+    print('done!')

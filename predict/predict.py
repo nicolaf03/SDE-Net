@@ -51,6 +51,6 @@ if __name__ == '__main__':
     device = 'cpu'
     
     zone = 'SUD'
-    version = 'v2'
+    version = 'v5'
     test_window = ('2021-07', '2021-12')
     predict(zone, version, test_window, device)
