@@ -1,0 +1,15 @@
+Failure # 1 (occurred at 2024-03-11_16-43-47)
+The actor died because of an error raised in its creation task, [36mray::MyTrainableClass.__init__()[39m (pid=26090, ip=127.0.0.1, actor_id=8f8784c252dd9e1ce81bfa2a01000000, repr=<hyperparameter_tuning.MyTrainableClass object at 0x167a99850>)
+  File "/Users/nicolafraccarolo/miniforge3/envs/ml-env/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 161, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "hyperparameter_tuning/hyperparameter_tuning.py", line 48, in setup
+    model.load_model(models_folder, model_name, self.device)
+  File "/Users/nicolafraccarolo/Documents/GitHub/SDE-Net/model/gan_model.py", line 846, in load_model
+    torch.load(str((Path(folder) / generator_filename).resolve()),
+  File "/Users/nicolafraccarolo/miniforge3/envs/ml-env/lib/python3.8/site-packages/torch/serialization.py", line 986, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/Users/nicolafraccarolo/miniforge3/envs/ml-env/lib/python3.8/site-packages/torch/serialization.py", line 435, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/Users/nicolafraccarolo/miniforge3/envs/ml-env/lib/python3.8/site-packages/torch/serialization.py", line 416, in __init__
+    super().__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/nicolafraccarolo/Documents/GitHub/SDE-Net/hyperparameter_tuning/ray_results/hyperparameter_tuning_SUD/MyTrainableClass_61a507ee_1_batch_size=16,name=SUD_v2,patience=1000,steps=200,steps_per_print=5,swa_step_start=2500,t_size=7,train_2024-03-11_16-43-44/trained_models/generator_SUD_v2'
