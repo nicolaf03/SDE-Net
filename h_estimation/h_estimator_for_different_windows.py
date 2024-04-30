@@ -8,8 +8,6 @@ from pathlib import Path
 from h_estimator import compute_Hc
 from fractional_BM.fBM import FractionalBM
 
-
-
 # module logger
 logger = logging.getLogger(__name__)
 
@@ -28,8 +26,8 @@ def h_estimate_func(noise, kind, min_window, max_window):
     return h, c, data
 
 
-def generate_fbm_trajectories(h_index, n_sims, T:int ):
-    mock_params = [1, 0.00, 0.05, 0.10, h_index]  # (S0, mu, theta, sigma, H)
+def generate_fbm_trajectories(sigma, h_index, n_sims, T:int ):
+    mock_params = [1, 0.00, 0.00, sigma, h_index]  # (S0, mu, theta, sigma, H)
     fBM = FractionalBM()
     fBM.set_parameters(mock_params)
     sims_df = fBM.simulate(n_sims=n_sims, t_steps=T, dt=1 / 365)
@@ -38,23 +36,31 @@ def generate_fbm_trajectories(h_index, n_sims, T:int ):
 
 if __name__ == '__main__':
     # INPUT
-    h_vec = [.1, .2, .3, .4, .5, .6, .7, .8, .9]
+    h_vec = np.linspace(.1, .9, 9)
+    sig_vec = np.linspace(0.742997902, 0.888742816, 5)
+    item = []
+    for i in range(0, len(h_vec)):
+        for j in range(0, len(sig_vec)):
+            item.append((sig_vec[j], h_vec[i]))
 
-    def compute_h(h):
+    # print(input)
+    def compute_h(item):
+        h = item[1]
+        sig = item[0]
         n_sims = 1000
         freq = 365
         t_n = freq * 5
-        step = 30
+        step = 60
         min_windows = np.arange(30, t_n - 365, step)
         max_windows = np.arange(100, t_n - 1, step)
 
-        print(f'Try with h = {h}')
+        print(f'Try with h = {h} and {sig}')
 
         df_h = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
         df_rmse = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
         df_range_win = pd.DataFrame(data=[], columns=max_windows, index=min_windows)
-        noise = generate_fbm_trajectories(h, n_sims, t_n)
-        logger.info(f'{n_sims} for fbm with H = {h} generated.')
+        noise = generate_fbm_trajectories(sig * np.sqrt(365), h, n_sims, t_n)
+        logger.info(f'{n_sims} for fbm with H = {h} and {sig} sigma generated.')
         for min_w in min_windows:
             for max_w in max_windows:
                 if min_w < max_w:
@@ -71,13 +77,13 @@ if __name__ == '__main__':
                 else:
                     pass
         Path.mkdir(curr_dir.joinpath('results'), exist_ok=True)
-        df_rmse.to_csv(f'{curr_dir}/results/H_{h}-rmse.csv', index=True)
-        df_range_win.to_csv(f'{curr_dir}/results/H_{h}-range.csv', index=True)
-        df_h.to_csv(f'{curr_dir}/results/H_{h}-dist.csv', index=True)
+        df_rmse.to_csv(f'{curr_dir}/results/H_{h}_sig_{sig}-rmse.csv', index=True)
+        df_range_win.to_csv(f'{curr_dir}/results/H_{h}_sig_{sig}-range.csv', index=True)
+        df_h.to_csv(f'{curr_dir}/results/H_{h}_sig_{sig}-dist.csv', index=True)
     # compute_h(0.5)
     # MULTIPROCESSING
     with mp.Pool() as pool:
-        pool.map(compute_h, iter(h_vec))
+        pool.map(compute_h, iter(item))
 
 
 
