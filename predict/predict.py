@@ -10,6 +10,12 @@ from pathlib import Path
 import os
 import time
 
+import argparse
+parser = argparse.ArgumentParser('SDE GAN prediction')
+parser.add_argument('--version', type=str, default='v3')
+parser.add_argument('--save_err', type=bool, default=False)
+args = parser.parse_args()
+
 curr_dir = Path(__file__).parent
 log_name = 'prediction'
 log = init_log(log_name, curr_dir / '..' / 'logs' / f'{log_name}.log', mode='a')
@@ -38,10 +44,21 @@ def predict(zone, version, test_window, device):
     
     start_test, end_test = test_window
     log.info(f'predict from {start_test} to {end_test} ...')
-    generated_samples, y_test, mean_err = model.predict(test_window, device, plot=True)
+    generated_samples, y_test, mean_err = model.predict(test_window, device, version, plot=True)
     print(mean_err)
+    
+    if args.save_err:
+        try:
+            with open(curr_dir / 'mean_err.txt', 'a') as file:
+                line_to_write = model_name + ',' + ','.join(map(str, mean_err.values()))
+                file.write(line_to_write + '\n')
+        except FileNotFoundError:
+            with open(curr_dir / 'mean_err.txt', 'w') as file:
+                file.write(',DTW,MMD\n')
+                line_to_write = model_name + ',' + ','.join(map(str, mean_err.values()))
+                file.write(line_to_write + '\n')
+    
     log.info('done prediction!')
-
     dispose_log(log)
     
 
@@ -51,6 +68,6 @@ if __name__ == '__main__':
     device = 'cpu'
     
     zone = 'SUD'
-    version = 'v5'
+    version = args.version#'v4'
     test_window = ('2021-07', '2021-12')
     predict(zone, version, test_window, device)

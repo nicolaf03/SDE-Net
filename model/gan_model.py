@@ -675,7 +675,7 @@ class GanModel:
     #     return models, predictions, gt, festive_days, bank_holidays, ignore_d7_index
 
 
-    def predict(self, test_window, device, plot):
+    def predict(self, test_window, device, version, plot):
 
         if self.generator is None or self.discriminator is None:
             raise ValueError('you must train or load the model before!')
@@ -714,6 +714,8 @@ class GanModel:
                 generated_samples_it = []
                 for i in range(1):
                     generated_sample = generator(ts, real_sample.size(0)).to(device)
+                    if self.generator.h != 0.5:
+                        generated_sample = generated_sample * 1.2
                     generated_samples_it.append(generated_sample)
                 generated_sample = torch.mean(torch.stack(generated_samples_it, dim=0), dim=0)
                 generated_sample = generated_sample - generated_sample[:, 0].unsqueeze(1)
@@ -735,14 +737,17 @@ class GanModel:
         generated_samples = torch.cat(generated_samples, dim=0)
         
         if plot:
-            plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'])
-            plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'])
+            plot_hist(real_samples, generated_samples, self.custom_params['plot_locs'], self.custom_params['zone'], version)
+            plot_samples(ts, real_samples, generated_samples, self.custom_params['num_plot_samples'], self.custom_params['zone'], version)
             #plt.show()
         
         mean_err_dtw = np.mean(err_dtw)
         #mean_err_mmd = np.mean(err_mmd)
         err_mmd = mmd(real_samples, generated_samples).item()
-        mean_err = {'DTW': mean_err_dtw, 'MMD': err_mmd}
+        mean_err = {
+            'DTW': mean_err_dtw, 
+            'MMD': err_mmd
+        }
         return generated_samples, real_samples, mean_err
     
     

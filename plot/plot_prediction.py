@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import pdb
 
-def plot_hist(real_samples, generated_samples, plot_locs, zone):
+def plot_hist(real_samples, generated_samples, plot_locs, zone, version):
     for prop in plot_locs:
         time = int(prop * (real_samples.size(1) - 1))
         real_samples_time = real_samples[:, time]
@@ -17,13 +17,14 @@ def plot_hist(real_samples, generated_samples, plot_locs, zone):
         plt.legend()
         plt.xlabel('Value')
         plt.ylabel('Density')
-        plt.title(f'Marginal distribution at time {time}.')
+        #plt.title(f'Marginal distribution at time {time}.')
+        plt.title('')
         plt.tight_layout()
-        plt.savefig(f'./images/marginal_distribution_{prop}_{zone}.png', dpi=200, format='png')
+        plt.savefig(f'./images/mar_dist_{zone}_{version}_{prop}.png', dpi=200, format='png')
         #plt.show()
 
 
-def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone):
+def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone, version):
     real_samples = real_samples[:num_plot_samples]
     generated_samples = generated_samples[:num_plot_samples]
     
@@ -39,7 +40,8 @@ def plot_samples(ts, real_samples, generated_samples, num_plot_samples, zone):
         plt.plot(ts.cpu(), generated_sample_.cpu(), color='crimson', linewidth=0.5, alpha=0.7, **kwargs)
         generated_first = False
     plt.legend()
-    plt.title(f"{num_plot_samples} samples from both real and generated distributions ({zone}).")
+    #plt.title(f"{num_plot_samples} samples from both real and generated distributions ({zone}).")
+    plt.title('')
     plt.tight_layout()
-    plt.savefig(f'images/samples_real_vs_generated_{zone}.png', dpi=200, format='png')
+    plt.savefig(f'images/samples_real_vs_generated_{zone}_{version}.png', dpi=200, format='png')
     #plt.show() 
